@@ -2,6 +2,19 @@ import express from 'express';
 import FormData from '../models/FormData.js';
 
 const router = express.Router();
+// DELETE /api/saved-forms/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    const deletedForm = await FormData.findByIdAndDelete(req.params.id);
+    if (!deletedForm) {
+      return res.status(404).json({ error: 'Form not found' });
+    }
+    res.json({ message: 'Form deleted successfully' });
+  } catch (err) {
+    console.error('❌ Deletion error:', err.message);
+    res.status(500).json({ error: 'Server error during deletion' });
+  }
+});
 
 // GET /api/saved-forms/:blockId?userId=xyz
 router.get('/:blockId', async (req, res) => {
