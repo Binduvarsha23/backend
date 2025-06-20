@@ -1,37 +1,41 @@
-import express from 'express';
-import FieldConfig from '../models/FieldConfig.js';
+import BlockMetadata from '../models/BlockMetadata.js';
+import mongoose from 'mongoose';
 
-const router = express.Router();
-
-// ✅ Middleware to check admin
-const isAdmin = (req, res, next) => {
-  const email = req.headers['admin-email'];
-  if (email !== 'binduvarshasunkara@gmail.com') {
-    return res.status(403).json({ error: 'Forbidden: Admin access only' });
-  }
-  next();
-};
-
-// GET all field configs for a block
-router.get('/:blockId', isAdmin, async (req, res) => {
-  const configs = await FieldConfig.find({ blockId: req.params.blockId });
-  res.json(configs);
-});
-
-// UPDATE or ADD a field config
-router.post('/:blockId', isAdmin, async (req, res) => {
-  const { fieldKey, label, required, visible } = req.body;
-
+// GET all blocks with their field definitions
+router.get('/all-blocks-fields', isAdmin, async (req, res) => {
   try {
-    const updated = await FieldConfig.findOneAndUpdate(
-      { blockId: req.params.blockId, fieldKey },
-      { $set: { label, required, visible } },
-      { upsert: true, new: true }
-    );
-    res.json(updated);
+    const blocks = await BlockMetadata.find();
+
+    const db = mongoose.connection.db;
+    const allBlockData = [];
+
+    for (let block of blocks) {
+      const collection = db.collection(block.data_collection_name);
+      const fieldDoc = await collection.findOne() || {};
+      delete fieldDoc._id;
+
+      const fieldConfigs = await FieldConfig.find({ blockId: block._id });
+
+      // Merge config with base fields
+      const mergedFields = Object.entries(fieldDoc).map(([key, val]) => {
+        const config = fieldConfigs.find(c => c.fieldKey === key);
+        return {
+          fieldKey: key,
+          label: config?.label || val.label || key,
+          required: config?.required ?? val.required ?? true,
+          visible: config?.visible ?? true,
+        };
+      });
+
+      allBlockData.push({
+        blockId: block._id,
+        blockName: block.name,
+        fields: mergedFields,
+      });
+    }
+
+    res.json(allBlockData);
   } catch (err) {
-    res.status(500).json({ error: 'Error saving config', details: err.message });
+    res.status(500).json({ error: 'Error loading all block fields', details: err.message });
   }
 });
-
-export default router;
