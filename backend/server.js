@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
+import adminFieldConfigRoute from './routes/adminFieldConfig.js';
 import blocksRoute from './routes/blocks.js';
 import blockFieldsRoute from './routes/blockFields.js';
 import saveFormRoute from './routes/saveForm.js';
@@ -38,6 +39,7 @@ app.use('/api/blocks', blocksRoute);
 app.use('/api/block-fields', blockFieldsRoute);
 app.use('/api/save-form', saveFormRoute);
 app.use('/api/saved-forms', savedFormsRoute);
+app.use('/api/admin-field-config', adminFieldConfigRoute);
 
 
 // Default fallback route (optional)
