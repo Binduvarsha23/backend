@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
+import customBlockRoutes from "./routes/customBlocks.js";
 import adminFieldConfigRoute from './routes/adminFieldConfig.js';
 import blocksRoute from './routes/blocks.js';
 import blockFieldsRoute from './routes/blockFields.js';
@@ -34,7 +35,7 @@ mongoose.connection.on('error', (err) => {
   console.error('❌ MongoDB connection error:', err);
 });
 
-// API Routes
+app.use("/api/custom-blocks", customBlockRoutes);
 app.use('/api/blocks', blocksRoute);
 app.use('/api/block-fields', blockFieldsRoute);
 app.use('/api/save-form', saveFormRoute);
