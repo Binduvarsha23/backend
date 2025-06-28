@@ -9,6 +9,8 @@ import blocksRoute from './routes/blocks.js';
 import blockFieldsRoute from './routes/blockFields.js';
 import saveFormRoute from './routes/saveForm.js';
 import savedFormsRoute from './routes/savedForms.js';
+import assetRoutes from "./routes/assetRoutes.js";
+import investmentRoutes from "./routes/investmentRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -41,7 +43,8 @@ app.use('/api/block-fields', blockFieldsRoute);
 app.use('/api/save-form', saveFormRoute);
 app.use('/api/saved-forms', savedFormsRoute);
 app.use('/api/admin-field-config', adminFieldConfigRoute);
-
+app.use("/api/assets", assetRoutes);
+app.use("/api/investments", investmentRoutes);
 
 // Default fallback route (optional)
 app.use((req, res) => {
