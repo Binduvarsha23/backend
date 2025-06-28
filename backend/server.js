@@ -11,6 +11,8 @@ import saveFormRoute from './routes/saveForm.js';
 import savedFormsRoute from './routes/savedForms.js';
 import assetRoutes from "./routes/assetRoutes.js";
 import investmentRoutes from "./routes/investmentRoutes.js";
+import passwordRoutes from './routes/passwords.js';
+import passwordCategoryRoutes from './routes/passwordCategories.js';
 
 dotenv.config();
 const app = express();
@@ -45,6 +47,8 @@ app.use('/api/saved-forms', savedFormsRoute);
 app.use('/api/admin-field-config', adminFieldConfigRoute);
 app.use("/api/assets", assetRoutes);
 app.use("/api/investments", investmentRoutes);
+app.use('/api/passwords', passwordRoutes);
+app.use('/api/password-categories', passwordCategoryRoutes);
 
 // Default fallback route (optional)
 app.use((req, res) => {
