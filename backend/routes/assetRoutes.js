@@ -108,6 +108,19 @@ router.put("/:id", upload.single('image'), async (req, res) => {
   }
 });
 
+router.patch("/:id/favorite", async (req, res) => {
+  try {
+    const asset = await Asset.findById(req.params.id);
+    if (!asset) return res.status(404).json({ error: "Asset not found" });
+    asset.favorite = !asset.favorite;
+    await asset.save();
+    res.json({ success: true, favorite: asset.favorite });
+  } catch (error) {
+    console.error("Error toggling favorite:", error);
+    res.status(500).json({ error: "Failed to update favorite" });
+  }
+});
+
 // DELETE asset (No change here)
 router.delete("/:id", async (req, res) => {
   try {
