@@ -7,7 +7,6 @@ const assetSchema = new mongoose.Schema({
   type: String,
   value: Number,
   location: String,
-  nominee: String,
   description: String,
   imageUrl: String, // <--- NEW FIELD: Add this line for image URL
 });
