@@ -73,6 +73,19 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+router.patch("/:id/favorite", async (req, res) => {
+  try {
+    const investment = await Investment.findById(req.params.id);
+    if (!investment) return res.status(404).json({ error: "Investment not found" });
+    investment.favorite = !investment.favorite;
+    await investment.save();
+    res.json({ success: true, favorite: investment.favorite });
+  } catch (error) {
+    console.error("Error toggling investment favorite:", error);
+    res.status(500).json({ error: "Failed to update favorite" });
+  }
+}); 
+
 // DELETE investment (No change)
 router.delete("/:id", async (req, res) => {
   try {
