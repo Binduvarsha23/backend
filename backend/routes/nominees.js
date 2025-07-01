@@ -1,13 +1,14 @@
-// File: routes/nomineeRoutes.js
 import express from 'express';
 import Nominee from '../models/Nominee.js';
 import Family from '../models/FamilyMember.js';
+import Asset from '../models/Asset.js';
+import Investment from '../models/Investment.js';
 import NodeCache from 'node-cache';
 
 const router = express.Router();
 const cache = new NodeCache({ stdTTL: 60 }); // 60 seconds TTL
 
-// GET all nominees for a user (with cache)
+// ✅ GET all nominees for a user (with enriched assetName or investmentName)
 router.get('/', async (req, res) => {
   const { userId } = req.query;
   const cacheKey = `nominees-${userId}`;
@@ -17,19 +18,30 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    const nominees = await Nominee.find({ userId });
+    const nominees = await Nominee.find({ userId }).lean(); // lean = faster
+
+    for (let nominee of nominees) {
+      if (nominee.type === 'asset') {
+        const asset = await Asset.findById(nominee.itemId);
+        nominee.assetName = asset?.name || 'Unnamed Asset';
+      } else if (nominee.type === 'investment') {
+        const investment = await Investment.findById(nominee.itemId);
+        nominee.assetName = investment?.name || 'Unnamed Investment';
+      }
+    }
+
     cache.set(cacheKey, nominees);
     res.json(nominees);
   } catch (error) {
+    console.error('❌ Failed to fetch nominees:', error);
     res.status(500).json({ error: 'Failed to fetch nominees' });
   }
 });
 
-// POST create new nominee
+// ✅ POST create new nominee
 router.post('/', async (req, res) => {
   const { userId, type, itemId, percentage, nomineeId, favorite = false } = req.body;
 
-  // 🛑 Validate non-negative percentage
   if (percentage < 0) {
     return res.status(400).json({ error: 'Percentage cannot be negative' });
   }
@@ -60,11 +72,12 @@ router.post('/', async (req, res) => {
     cache.del(`nominees-${userId}`);
     res.status(201).json(nominee);
   } catch (err) {
+    console.error("❌ Failed to save nominee:", err);
     res.status(500).json({ error: 'Failed to save nominee' });
   }
 });
 
-// PATCH update nominee
+// ✅ PATCH update nominee
 router.patch('/:id', async (req, res) => {
   const { type, itemId, percentage, nomineeId, userId, favorite } = req.body;
 
@@ -105,11 +118,12 @@ router.patch('/:id', async (req, res) => {
     cache.del(`nominees-${userId}`);
     res.json(updated);
   } catch (err) {
+    console.error("❌ Failed to update nominee:", err);
     res.status(500).json({ error: 'Failed to update nominee' });
   }
 });
 
-// PATCH toggle favorite for nominee
+// ✅ PATCH toggle favorite for nominee
 router.patch('/:id/favorite', async (req, res) => {
   try {
     const nominee = await Nominee.findById(req.params.id);
@@ -126,7 +140,7 @@ router.patch('/:id/favorite', async (req, res) => {
   }
 });
 
-// DELETE nominee
+// ✅ DELETE nominee
 router.delete('/:id', async (req, res) => {
   try {
     const nominee = await Nominee.findById(req.params.id);
