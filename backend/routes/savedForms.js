@@ -16,6 +16,21 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// GET /api/saved-forms?userId=xyz
+router.get('/', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ error: "Missing userId" });
+
+  try {
+    const forms = await FormData.find({ userId }).sort({ createdAt: -1 });
+    res.json(forms);
+  } catch (err) {
+    console.error("❌ Fetch Error:", err);
+    res.status(500).json({ error: "Failed to fetch all saved forms" });
+  }
+});
+
+
 // GET /api/saved-forms/:blockId?userId=xyz
 router.get('/:blockId', async (req, res) => {
   const { userId } = req.query;
