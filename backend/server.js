@@ -13,6 +13,8 @@ import assetRoutes from "./routes/assetRoutes.js";
 import investmentRoutes from "./routes/investmentRoutes.js";
 import passwordRoutes from './routes/passwords.js';
 import passwordCategoryRoutes from './routes/passwordCategories.js';
+import familyRoutes from './routes/family.js';
+import nomineeRoutes from './routes/nominees.js'; 
 
 dotenv.config();
 const app = express();
@@ -49,6 +51,8 @@ app.use("/api/assets", assetRoutes);
 app.use("/api/investments", investmentRoutes);
 app.use('/api/passwords', passwordRoutes);
 app.use('/api/password-categories', passwordCategoryRoutes);
+app.use('/api/family', familyRoutes);
+app.use('/api/nominees', nomineeRoutes);
 
 // Default fallback route (optional)
 app.use((req, res) => {
