@@ -8,7 +8,8 @@ const assetSchema = new mongoose.Schema({
   value: Number,
   location: String,
   description: String,
-  imageUrl: String, // <--- NEW FIELD: Add this line for image URL
+  imageUrl: String,
+  favorite: { type: Boolean, default: false },
 });
 
 export default mongoose.model("Asset", assetSchema);
