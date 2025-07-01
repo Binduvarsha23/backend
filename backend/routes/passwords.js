@@ -32,6 +32,19 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.patch('/:id/favorite', async (req, res) => {
+  try {
+    const entry = await PasswordEntry.findById(req.params.id);
+    if (!entry) return res.status(404).json({ error: 'Password entry not found' });
+    entry.favorite = !entry.favorite;
+    await entry.save();
+    res.json({ success: true, favorite: entry.favorite });
+  } catch (err) {
+    console.error('❌ Favorite toggle error:', err);
+    res.status(500).json({ error: 'Failed to toggle favorite' });
+  }
+});
+
 // DELETE /api/passwords/:id
 router.delete('/:id', async (req, res) => {
   try {
