@@ -37,4 +37,21 @@ router.get('/:blockId', async (req, res) => {
   }
 });
 
+// PATCH /api/saved-forms/:id/favorite
+router.patch('/:id/favorite', async (req, res) => {
+  try {
+    const form = await FormData.findById(req.params.id);
+    if (!form) return res.status(404).json({ error: 'Form not found' });
+
+    form.favorite = !form.favorite;
+    await form.save();
+
+    res.json({ success: true, favorite: form.favorite });
+  } catch (err) {
+    console.error('❌ Toggle favorite error:', err);
+    res.status(500).json({ error: 'Failed to toggle favorite' });
+  }
+});
+
+
 export default router;
