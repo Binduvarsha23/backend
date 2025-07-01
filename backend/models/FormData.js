@@ -6,6 +6,7 @@ const formDataSchema = new mongoose.Schema({
   blockName: { type: String, required: true },
   data: { type: mongoose.Schema.Types.Mixed },
   createdAt: { type: Date, default: Date.now },
+  favorite: { type: Boolean, default: false },
 });
 
 export default mongoose.model('FormData', formDataSchema);
