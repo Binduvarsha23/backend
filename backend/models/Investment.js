@@ -8,6 +8,7 @@ const investmentSchema = new mongoose.Schema({
   investedAmount: Number,
   currentValue: Number,
   nominee: String,
+  favorite: { type: Boolean, default: false },
 });
 
 export default mongoose.model("Investment", investmentSchema);
