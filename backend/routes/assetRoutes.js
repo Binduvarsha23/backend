@@ -1,21 +1,19 @@
+// src/routes/assetRoutes.js (or similar path on your backend)
 import express from "express";
 import Asset from "../models/Asset.js";
-import multer from "multer"; // Import multer
+import multer from "multer";
 
 const router = express.Router();
 
-// Configure multer for memory storage
-// This stores the file in memory as a Buffer, which is easy to convert to Base64
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// Helper function to convert buffer to Base64
 const convertBufferToBase64 = (buffer, mimetype) => {
   if (!buffer || !mimetype) return null;
   return `data:${mimetype};base64,${buffer.toString('base64')}`;
 };
 
-// GET assets by userId
+// GET assets by userId (No change here)
 router.get("/", async (req, res) => {
   const { userId } = req.query;
   if (!userId) return res.status(400).json({ error: "Missing userId" });
@@ -29,19 +27,23 @@ router.get("/", async (req, res) => {
 });
 
 // POST asset with userId and optional image upload
-// Use upload.single('image') middleware to handle a single file upload named 'image'
 router.post("/", upload.single('image'), async (req, res) => {
-  const { userId, name, type, value, location, description } = req.body; // Extract fields from req.body
+  const { userId, name, type, value, location, description } = req.body;
 
   if (!userId) return res.status(400).json({ error: "Missing userId" });
   if (!name || !type || value === undefined) return res.status(400).json({ error: "Missing required asset fields" });
 
+  // --- START: NEW Duplicate Check Logic for POST ---
+  const existingAsset = await Asset.findOne({ userId, name, type });
+  if (existingAsset) {
+    return res.status(409).json({ error: `An asset named "${name}" of type "${type}" already exists. Please edit the existing asset to modify its nominees or value.` });
+  }
+  // --- END: NEW Duplicate Check Logic for POST ---
+
   let imageUrl = null;
   if (req.file) {
-    // If a file was uploaded, convert its buffer to Base64
     imageUrl = convertBufferToBase64(req.file.buffer, req.file.mimetype);
   } else if (req.body.imageUrl) {
-    // Allow direct imageUrl string if no file upload (e.g., for existing URLs)
     imageUrl = req.body.imageUrl;
   }
 
@@ -53,7 +55,7 @@ router.post("/", upload.single('image'), async (req, res) => {
       value,
       location,
       description,
-      imageUrl // Save the Base64 string or provided URL
+      imageUrl
     });
     await asset.save();
     res.status(201).json(asset);
@@ -64,22 +66,25 @@ router.post("/", upload.single('image'), async (req, res) => {
 });
 
 // PUT update asset with optional image upload
-// Use upload.single('image') middleware for updates too
 router.put("/:id", upload.single('image'), async (req, res) => {
-  const { name, type, value, location, description, userId } = req.body; // Extract fields from req.body
+  const { name, type, value, location, description, userId } = req.body;
+
+  // --- START: NEW Duplicate Check Logic for PUT ---
+  // When updating, check for duplicates against *other* assets, not the one being updated
+  // Ensure name, type, and userId are present in the update data to perform this check
+  if (name && type && userId) {
+    const existingAsset = await Asset.findOne({ userId, name, type, _id: { $ne: req.params.id } }); // Exclude current asset by ID
+    if (existingAsset) {
+      return res.status(409).json({ error: `Another asset named "${name}" of type "${type}" already exists. Please use a unique name/type combination for this asset.` });
+    }
+  }
+  // --- END: NEW Duplicate Check Logic for PUT ---
 
   let imageUrl = null;
   if (req.file) {
-    // If a new file is uploaded, convert it to Base64
     imageUrl = convertBufferToBase64(req.file.buffer, req.file.mimetype);
   } else if (req.body.imageUrl !== undefined) {
-    // If imageUrl field is explicitly sent (even if empty, meaning user removed it)
     imageUrl = req.body.imageUrl;
-  } else {
-    // If no new file and no imageUrl field sent, retain existing imageUrl
-    // You might need to fetch the existing asset to get its imageUrl if not sent in req.body
-    // For simplicity, we'll assume the frontend sends the current imageUrl if not changing.
-    // If the frontend sends an empty string for imageUrl, it will clear it.
   }
 
   const updateData = {
@@ -88,10 +93,9 @@ router.put("/:id", upload.single('image'), async (req, res) => {
     value,
     location,
     description,
-    imageUrl // Update with new Base64 or null/empty string
+    imageUrl
   };
 
-  // Remove undefined fields to prevent overwriting with null if not provided
   Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
 
   try {
@@ -104,7 +108,7 @@ router.put("/:id", upload.single('image'), async (req, res) => {
   }
 });
 
-// DELETE asset
+// DELETE asset (No change here)
 router.delete("/:id", async (req, res) => {
   try {
     await Asset.findByIdAndDelete(req.params.id);
