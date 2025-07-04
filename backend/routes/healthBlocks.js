@@ -1,6 +1,7 @@
 // File: routes/healthBlocks.js
 import express from 'express';
 import HealthBlock from '../models/HealthBlock.js';
+import HealthFile from '../models/HealthFile.js';
 
 const router = express.Router();
 
@@ -47,14 +48,22 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-// DELETE a custom block
+// DELETE a custom block and its files
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
+    const block = await HealthBlock.findById(id);
+    if (!block) return res.status(404).json({ error: "Block not found" });
+
+    // ✅ Delete files with same userId and blockName
+    await HealthFile.deleteMany({ userId: block.userId, blockName: block.blockName });
+
     await HealthBlock.findByIdAndDelete(id);
-    res.json({ success: true });
+
+    res.json({ success: true, message: "Block and related files deleted" });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Delete failed" });
   }
 });
