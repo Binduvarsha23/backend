@@ -54,7 +54,7 @@ app.use('/api/passwords', passwordRoutes);
 app.use('/api/password-categories', passwordCategoryRoutes);
 app.use('/api/family', familyRoutes);
 app.use('/api/nominees', nomineeRoutes);
-app.use('/api/search', searchRoutes);s
+app.use('/api/search', searchRoutes);
 
 // Default fallback route (optional)
 app.use((req, res) => {
