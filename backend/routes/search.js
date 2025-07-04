@@ -1,5 +1,5 @@
 import express from 'express';
-import SavedForm from '../models/SavedForm.js';
+import FormData from '../models/FormData.js';
 import Nominee from '../models/Nominee.js';
 import Asset from '../models/Asset.js';
 import Investment from '../models/Investment.js';
@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
 
   try {
     const [forms, nominees, assets, investments, passwords, families] = await Promise.all([
-      SavedForm.find({ userId }),
+      FormData.find({ userId }),
       Nominee.find({ userId }),
       Asset.find({ userId }),
       Investment.find({ userId }),
@@ -24,14 +24,13 @@ router.get('/', async (req, res) => {
       Family.find({ userId }),
     ]);
 
-    // Helper to search in any field of an object
     const matchesQuery = (obj) =>
       Object.values(obj).some(val =>
         typeof val === 'string' && val.toLowerCase().includes(q)
       );
 
     const matchedForms = forms.filter(f =>
-      matchesQuery(f.data) || (f.blockName && f.blockName.toLowerCase().includes(q))
+      matchesQuery(f.data) || (f.blockName?.toLowerCase().includes(q))
     ).map(f => ({ type: "Document", ...f._doc }));
 
     const matchedPasswords = passwords.filter(p => {
