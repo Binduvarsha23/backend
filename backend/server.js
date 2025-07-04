@@ -16,6 +16,7 @@ import passwordCategoryRoutes from './routes/passwordCategories.js';
 import familyRoutes from './routes/family.js';
 import nomineeRoutes from './routes/nominees.js'; 
 import searchRoutes from './routes/search.js';
+import healthRecordRoutes from './routes/healthRecords.js';
 
 dotenv.config();
 const app = express();
@@ -55,6 +56,7 @@ app.use('/api/password-categories', passwordCategoryRoutes);
 app.use('/api/family', familyRoutes);
 app.use('/api/nominees', nomineeRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/health-records', healthRecordRoutes);
 
 // Default fallback route (optional)
 app.use((req, res) => {
