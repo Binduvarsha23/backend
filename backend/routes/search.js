@@ -4,7 +4,7 @@ import Nominee from '../models/Nominee.js';
 import Asset from '../models/Asset.js';
 import Investment from '../models/Investment.js';
 import Password from '../models/PasswordEntry.js';
-import Family from '../models/Family.js';
+import Family from '../models/FamilyMember.js';
 
 const router = express.Router();
 
