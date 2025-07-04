@@ -15,6 +15,7 @@ import passwordRoutes from './routes/passwords.js';
 import passwordCategoryRoutes from './routes/passwordCategories.js';
 import familyRoutes from './routes/family.js';
 import nomineeRoutes from './routes/nominees.js'; 
+import searchRoutes from './routes/search.js';
 
 dotenv.config();
 const app = express();
