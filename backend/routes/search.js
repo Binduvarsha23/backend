@@ -12,9 +12,12 @@ router.get('/', async (req, res) => {
   const { userId, query } = req.query;
   const q = query?.toLowerCase() || "";
 
-  if (!userId || !q) return res.status(400).json({ error: "Missing userId or query" });
+  if (!userId || !q) {
+    return res.status(400).json({ error: "Missing userId or query" });
+  }
 
   try {
+    // Fetch all collections
     const [forms, nominees, assets, investments, passwords, families] = await Promise.all([
       FormData.find({ userId }),
       Nominee.find({ userId }),
@@ -24,45 +27,80 @@ router.get('/', async (req, res) => {
       Family.find({ userId }),
     ]);
 
-    const matchesQuery = (obj) =>
-      Object.values(obj).some(val =>
-        typeof val === 'string' && val.toLowerCase().includes(q)
-      );
+    // 🔁 Recursive matcher
+    const matchesQuery = (obj) => {
+      const check = (val) => {
+        if (!val) return false;
+        if (typeof val === 'string') return val.toLowerCase().includes(q);
+        if (typeof val === 'number') return val.toString().includes(q);
+        if (Array.isArray(val)) return val.some(check);
+        if (typeof val === 'object') return Object.values(val).some(check);
+        return false;
+      };
+      return check(obj);
+    };
 
+    // 🔍 FormData (Documents)
     const matchedForms = forms.filter(f =>
       matchesQuery(f.data) || (f.blockName?.toLowerCase().includes(q))
-    ).map(f => ({ type: "Document", ...f._doc }));
-
-    const matchedPasswords = passwords.filter(p => {
-      const decrypted = JSON.parse(Buffer.from(p.data, 'base64').toString());
-      return matchesQuery(decrypted) || (p.blockName?.toLowerCase().includes(q));
-    }).map(p => ({ type: "Password", ...p._doc }));
-
-    const matchedAssets = assets.filter(a =>
-      matchesQuery(a) || a.assetName?.toLowerCase().includes(q)
-    ).map(a => ({ type: "Asset", ...a._doc }));
-
-    const matchedInvestments = investments.filter(i =>
-      matchesQuery(i) || i.investmentName?.toLowerCase().includes(q)
-    ).map(i => ({ type: "Investment", ...i._doc }));
-
-    const matchedNominees = nominees.filter(n =>
-      matchesQuery(n)
-    ).map(n => ({
-      type: "Nominee",
-      ...n._doc,
-      family: families.find(f => f._id.toString() === n.nomineeId?.toString())
+    ).map(f => ({
+      type: "Document",
+      ...f._doc
     }));
 
-    res.json([
+    // 🔍 Passwords (decrypted)
+    const matchedPasswords = passwords.filter(p => {
+      try {
+        const decrypted = JSON.parse(Buffer.from(p.data, 'base64').toString());
+        return matchesQuery(decrypted) || (p.blockName?.toLowerCase().includes(q));
+      } catch (e) {
+        return false;
+      }
+    }).map(p => ({
+      type: "Password",
+      ...p._doc
+    }));
+
+    // 🔍 Assets
+    const matchedAssets = assets.filter(a =>
+      matchesQuery(a)
+    ).map(a => ({
+      type: "Asset",
+      ...a._doc
+    }));
+
+    // 🔍 Investments
+    const matchedInvestments = investments.filter(i =>
+      matchesQuery(i)
+    ).map(i => ({
+      type: "Investment",
+      ...i._doc
+    }));
+
+    // 🔍 Nominees + linked Family Member
+    const matchedNominees = nominees.filter(n =>
+      matchesQuery(n)
+    ).map(n => {
+      const family = families.find(f => f._id.toString() === n.nomineeId?.toString());
+      return {
+        type: "Nominee",
+        ...n._doc,
+        family
+      };
+    });
+
+    // 📦 Final combined result
+    const allResults = [
       ...matchedForms,
       ...matchedPasswords,
       ...matchedAssets,
       ...matchedInvestments,
       ...matchedNominees
-    ]);
+    ];
+
+    res.json(allResults);
   } catch (err) {
-    console.error("Search error:", err);
+    console.error("❌ Search error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
