@@ -18,6 +18,7 @@ import nomineeRoutes from './routes/nominees.js';
 import searchRoutes from './routes/search.js';
 import healthRecordRoutes from './routes/healthRecords.js';
 import healthBlockRoutes from './routes/healthBlocks.js';
+import securityConfigRoutes from './routes/securityConfig.js';
 
 dotenv.config();
 const app = express();
@@ -59,6 +60,7 @@ app.use('/api/nominees', nomineeRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/health-records', healthRecordRoutes);
 app.use('/api/health-blocks', healthBlockRoutes);
+app.use('/api/security-config', securityConfigRoutes);
 
 // Default fallback route (optional)
 app.use((req, res) => {
