@@ -56,16 +56,12 @@ router.post('/', async (req, res) => {
 
     let nomineeName, nomineeRelation;
 
-    if (nomineeId === "self") {
-      nomineeName = "Self";
-      nomineeRelation = "Self";
-    } else {
-      const family = await Family.findById(nomineeId);
-      if (!family) return res.status(404).json({ error: 'Nominee not found' });
+   const family = await Family.findById(nomineeId);
+if (!family) return res.status(404).json({ error: 'Nominee not found' });
 
-      nomineeName = family.fullName;
-      nomineeRelation = family.relation;
-    }
+nomineeName = family.fullName;
+nomineeRelation = family.relation;
+
 
     const nominee = new Nominee({
       userId,
