@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    const nominees = await Nominee.find({ userId }).lean(); // lean = faster
+    const nominees = await Nominee.find({ userId }).lean();
 
     for (let nominee of nominees) {
       if (nominee.type === 'asset') {
@@ -54,8 +54,18 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Total allocation exceeds 100%' });
     }
 
-    const family = await Family.findById(nomineeId);
-    if (!family) return res.status(404).json({ error: 'Nominee not found' });
+    let nomineeName, nomineeRelation;
+
+    if (nomineeId === "self") {
+      nomineeName = "Self";
+      nomineeRelation = "Self";
+    } else {
+      const family = await Family.findById(nomineeId);
+      if (!family) return res.status(404).json({ error: 'Nominee not found' });
+
+      nomineeName = family.fullName;
+      nomineeRelation = family.relation;
+    }
 
     const nominee = new Nominee({
       userId,
@@ -63,8 +73,8 @@ router.post('/', async (req, res) => {
       itemId,
       percentage,
       nomineeId,
-      nomineeName: family.fullName,
-      nomineeRelation: family.relation,
+      nomineeName,
+      nomineeRelation,
       favorite,
     });
 
@@ -98,8 +108,18 @@ router.patch('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Total allocation exceeds 100%' });
     }
 
-    const family = await Family.findById(nomineeId);
-    if (!family) return res.status(404).json({ error: 'Nominee not found' });
+    let nomineeName, nomineeRelation;
+
+    if (nomineeId === "self") {
+      nomineeName = "Self";
+      nomineeRelation = "Self";
+    } else {
+      const family = await Family.findById(nomineeId);
+      if (!family) return res.status(404).json({ error: 'Nominee not found' });
+
+      nomineeName = family.fullName;
+      nomineeRelation = family.relation;
+    }
 
     const updated = await Nominee.findByIdAndUpdate(
       req.params.id,
@@ -108,8 +128,8 @@ router.patch('/:id', async (req, res) => {
         itemId,
         percentage,
         nomineeId,
-        nomineeName: family.fullName,
-        nomineeRelation: family.relation,
+        nomineeName,
+        nomineeRelation,
         ...(favorite !== undefined && { favorite }),
       },
       { new: true }
