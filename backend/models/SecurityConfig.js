@@ -31,7 +31,12 @@ const securityConfigSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  lastVerifiedAt: {
+  type: Date,
+  default: null,
+}
+
 });
 
 export default mongoose.model('SecurityConfig', securityConfigSchema);
