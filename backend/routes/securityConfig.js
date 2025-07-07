@@ -1,10 +1,9 @@
-// backend/routes/securityConfig.js
 import express from 'express';
 import SecurityConfig from '../models/SecurityConfig.js';
 
 const router = express.Router();
 
-// Get user's config
+// GET user's config
 router.get('/:userId', async (req, res) => {
   try {
     const config = await SecurityConfig.findOne({ userId: req.params.userId });
@@ -15,7 +14,7 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
-// Create default config
+// POST create default config
 router.post('/', async (req, res) => {
   const { userId } = req.body;
   try {
@@ -29,12 +28,13 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update (enable password or pin, disable the other)
+// PUT update config (enable/disable password or pin)
 router.put('/:userId', async (req, res) => {
   const { userId } = req.body;
   try {
     const update = {};
 
+    // Enable/Disable logic
     if (req.body.passwordEnabled) {
       update.passwordEnabled = true;
       update.pinEnabled = false;
@@ -45,6 +45,7 @@ router.put('/:userId', async (req, res) => {
       if (req.body.pinHash) update.pinHash = req.body.pinHash;
     }
 
+    // Explicit disable
     if (req.body.passwordEnabled === false) update.passwordEnabled = false;
     if (req.body.pinEnabled === false) update.pinEnabled = false;
 
@@ -61,7 +62,7 @@ router.put('/:userId', async (req, res) => {
   }
 });
 
-// Verify password or pin
+// POST /verify — verify PIN or Password
 router.post('/verify', async (req, res) => {
   const { userId, value, method } = req.body;
   try {
@@ -75,9 +76,32 @@ router.post('/verify', async (req, res) => {
     );
 
     if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+
+    // ✅ Update lastVerifiedAt on success
+    config.lastVerifiedAt = new Date();
+    await config.save();
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: 'Verification failed' });
+  }
+});
+
+// ✅ NEW: GET /check-verification/:userId — check if verified within last 3 hours
+router.get('/check-verification/:userId', async (req, res) => {
+  try {
+    const config = await SecurityConfig.findOne({ userId: req.params.userId });
+    if (!config) return res.status(404).json({ message: 'Config not found' });
+
+    const now = new Date();
+    const last = config.lastVerifiedAt;
+    const threeHoursMs = 3 * 60 * 60 * 1000;
+
+    const verifiedRecently = last && (now - new Date(last) < threeHoursMs);
+
+    res.json({ verifiedRecently });
+  } catch (err) {
+    res.status(500).json({ message: 'Error checking verification' });
   }
 });
 
