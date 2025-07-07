@@ -1,53 +1,67 @@
-import express from 'express';
-import SecurityConfig from '../models/SecurityConfig.js';
+import express from "express";
+import SecurityConfig from "../models/SecurityConfig.js";
 
 const router = express.Router();
 
-// GET user's config
-router.get('/:userId', async (req, res) => {
+// Get user's config
+router.get("/:userId", async (req, res) => {
   try {
     const config = await SecurityConfig.findOne({ userId: req.params.userId });
-    if (!config) return res.status(404).json({ message: 'Config not found' });
+    if (!config) return res.status(404).json({ message: "Config not found" });
     res.json(config);
   } catch (err) {
-    res.status(500).json({ message: 'Error fetching config' });
+    res.status(500).json({ message: "Error fetching config" });
   }
 });
 
-// POST create default config
-router.post('/', async (req, res) => {
+// Create default config
+router.post("/", async (req, res) => {
   const { userId } = req.body;
   try {
     const existing = await SecurityConfig.findOne({ userId });
-    if (existing) return res.status(400).json({ message: 'Already exists' });
+    if (existing) return res.status(400).json({ message: "Already exists" });
     const config = new SecurityConfig({ userId });
     await config.save();
     res.status(201).json(config);
   } catch (err) {
-    res.status(500).json({ message: 'Error creating config' });
+    res.status(500).json({ message: "Error creating config" });
   }
 });
 
-// PUT update config (enable/disable password or pin)
-router.put('/:userId', async (req, res) => {
+// Update config (enable/disable password, pin, pattern, biometric)
+router.put("/:userId", async (req, res) => {
   const { userId } = req.body;
   try {
     const update = {};
 
-    // Enable/Disable logic
+    // Exclusivity logic
     if (req.body.passwordEnabled) {
       update.passwordEnabled = true;
       update.pinEnabled = false;
+      update.patternEnabled = false;
       if (req.body.passwordHash) update.passwordHash = req.body.passwordHash;
     } else if (req.body.pinEnabled) {
       update.pinEnabled = true;
       update.passwordEnabled = false;
+      update.patternEnabled = false;
       if (req.body.pinHash) update.pinHash = req.body.pinHash;
+    } else if (req.body.patternEnabled) {
+      update.patternEnabled = true;
+      update.pinEnabled = false;
+      update.passwordEnabled = false;
+      if (req.body.patternHash) update.patternHash = req.body.patternHash;
     }
 
-    // Explicit disable
+    // Individual flags
+    if (typeof req.body.biometricEnabled === "boolean") {
+      update.biometricEnabled = req.body.biometricEnabled;
+    }
+
     if (req.body.passwordEnabled === false) update.passwordEnabled = false;
     if (req.body.pinEnabled === false) update.pinEnabled = false;
+    if (req.body.patternEnabled === false) update.patternEnabled = false;
+
+    update.updatedAt = new Date();
 
     const config = await SecurityConfig.findOneAndUpdate(
       { userId: req.params.userId },
@@ -55,53 +69,62 @@ router.put('/:userId', async (req, res) => {
       { new: true }
     );
 
-    if (!config) return res.status(404).json({ message: 'Config not found' });
+    if (!config) return res.status(404).json({ message: "Config not found" });
     res.json(config);
   } catch (err) {
-    res.status(500).json({ message: 'Error updating config' });
+    res.status(500).json({ message: "Error updating config" });
   }
 });
 
-// POST /verify — verify PIN or Password
-router.post('/verify', async (req, res) => {
+// Verify route for password, pin, pattern, biometric
+router.post("/verify", async (req, res) => {
   const { userId, value, method } = req.body;
+
   try {
     const config = await SecurityConfig.findOne({ userId });
-    if (!config) return res.status(404).json({ message: 'Config not found' });
+    if (!config) return res.status(404).json({ message: "Config not found" });
 
-    const bcrypt = await import('bcryptjs');
-    const isMatch = await bcrypt.compare(
-      value,
-      method === 'pin' ? config.pinHash : config.passwordHash
-    );
+    const bcrypt = await import("bcryptjs");
 
-    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+    let isMatch = false;
 
-    // ✅ Update lastVerifiedAt on success
+    if (method === "pin" && config.pinHash) {
+      isMatch = await bcrypt.compare(value, config.pinHash);
+    } else if (method === "password" && config.passwordHash) {
+      isMatch = await bcrypt.compare(value, config.passwordHash);
+    } else if (method === "pattern" && config.patternHash) {
+      isMatch = await bcrypt.compare(value, config.patternHash);
+    } else if (method === "biometric") {
+      isMatch = true; // browser handles biometric check
+    }
+
+    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+
     config.lastVerifiedAt = new Date();
     await config.save();
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ message: 'Verification failed' });
+    console.error("Verification error", err);
+    res.status(500).json({ message: "Verification failed" });
   }
 });
 
-// ✅ NEW: GET /check-verification/:userId — check if verified within last 3 hours
-router.get('/check-verification/:userId', async (req, res) => {
+// Check if user has verified in last 3 hours
+router.get("/check-verification/:userId", async (req, res) => {
   try {
     const config = await SecurityConfig.findOne({ userId: req.params.userId });
-    if (!config) return res.status(404).json({ message: 'Config not found' });
+    if (!config) return res.status(404).json({ message: "Config not found" });
 
-    const now = new Date();
     const last = config.lastVerifiedAt;
-    const threeHoursMs = 3 * 60 * 60 * 1000;
+    const now = new Date();
 
-    const verifiedRecently = last && (now - new Date(last) < threeHoursMs);
+    const verifiedRecently =
+      last && now - new Date(last) < 3 * 60 * 60 * 1000; // 3 hours
 
     res.json({ verifiedRecently });
   } catch (err) {
-    res.status(500).json({ message: 'Error checking verification' });
+    res.status(500).json({ message: "Error checking verification" });
   }
 });
 
