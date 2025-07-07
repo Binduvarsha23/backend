@@ -26,8 +26,9 @@ const securityConfigSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-
-  // Optional: track when it was last updated
+patternHash: { type: String, default: null },
+patternEnabled: { type: Boolean, default: false },
+biometricEnabled: { type: Boolean, default: false },
   updatedAt: {
     type: Date,
     default: Date.now
