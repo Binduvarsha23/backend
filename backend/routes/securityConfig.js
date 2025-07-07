@@ -120,7 +120,7 @@ router.get("/check-verification/:userId", async (req, res) => {
     const now = new Date();
 
     const verifiedRecently =
-      last && now - new Date(last) < 3000; // 3 hours
+      last && now - new Date(last) < 3 * 60 * 60 * 1000; // 3 hours
 
     res.json({ verifiedRecently });
   } catch (err) {
