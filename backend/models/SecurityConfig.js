@@ -26,9 +26,18 @@ const securityConfigSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  patternHash: { type: String, default: null },
-  patternEnabled: { type: Boolean, default: false },
-  biometricEnabled: { type: Boolean, default: false },
+  patternHash: {
+    type: String,
+    default: null
+  },
+  patternEnabled: {
+    type: Boolean,
+    default: false
+  },
+  biometricEnabled: {
+    type: Boolean,
+    default: false
+  },
   updatedAt: {
     type: Date,
     default: Date.now
@@ -56,6 +65,30 @@ const securityConfigSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  // New fields for WebAuthn (Biometric)
+  biometricCredentials: [
+    {
+      credentialID: {
+        type: String,
+        required: true
+      },
+      publicKey: {
+        type: String,
+        required: true
+      }, // Stored as Base64URL
+      counter: {
+        type: Number,
+        default: 0
+      },
+      transports: [{
+        type: String
+      }], // e.g., 'usb', 'internal', 'ble', 'nfc'
+    },
+  ],
+  currentChallenge: {
+    type: String,
+    default: null
+  }, // Stores the WebAuthn challenge for registration/authentication
 });
 
 export default mongoose.model('SecurityConfig', securityConfigSchema);
