@@ -128,4 +128,58 @@ router.get("/check-verification/:userId", async (req, res) => {
   }
 });
 
+// PUT /api/security-config/security-questions/:userId
+router.put("/security-questions/:userId", async (req, res) => {
+  const { questions } = req.body; // array of { question, answer }
+  if (!Array.isArray(questions) || questions.length !== 3) {
+    return res.status(400).json({ message: "3 security questions required" });
+  }
+
+  try {
+    const bcrypt = await import("bcryptjs");
+    const hashedQuestions = await Promise.all(
+      questions.map(async (q) => ({
+        question: q.question,
+        answerHash: await bcrypt.hash(q.answer, 10),
+      }))
+    );
+
+    const config = await SecurityConfig.findOneAndUpdate(
+      { userId: req.params.userId },
+      { $set: { securityQuestions: hashedQuestions } },
+      { new: true }
+    );
+
+    res.json(config);
+  } catch (err) {
+    res.status(500).json({ message: "Error saving questions" });
+  }
+});
+// POST /api/security-config/verify-security-answer
+router.post("/verify-security-answer", async (req, res) => {
+  const { userId, question, answer } = req.body;
+
+  try {
+    const config = await SecurityConfig.findOne({ userId });
+    if (!config || !config.securityQuestions?.length) {
+      return res.status(404).json({ message: "No security questions set" });
+    }
+
+    const bcrypt = await import("bcryptjs");
+    const match = await Promise.all(
+      config.securityQuestions
+        .filter((q) => q.question === question)
+        .map(async (q) => await bcrypt.compare(answer, q.answerHash))
+    );
+
+    if (match.includes(true)) {
+      return res.json({ success: true });
+    } else {
+      return res.status(401).json({ message: "Incorrect answer" });
+    }
+  } catch (err) {
+    res.status(500).json({ message: "Verification failed" });
+  }
+});
+
 export default router;
