@@ -36,7 +36,13 @@ biometricEnabled: { type: Boolean, default: false },
   lastVerifiedAt: {
   type: Date,
   default: null,
-}
+},
+  securityQuestions: [
+  {
+    question: { type: String },
+    answerHash: { type: String },
+  }
+],
 
 });
 
