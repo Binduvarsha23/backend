@@ -122,19 +122,21 @@ router.get("/generate-registration-options/:userId", async (req, res) => {
             transports: cred.transports || [],
         }));
 
-        const options = await generateRegistrationOptions({
-            rpID,
-            rpName,
-            userID: new TextEncoder().encode(userId), // Convert userId string to Uint8Array
-            userName: userId, // userName can still be a string
-            attestationType: 'none', // Or 'direct'/'indirect' for stronger attestation
-            excludeCredentials,
-            authenticatorSelection: {
-                residentKey: 'preferred', // Store credential on authenticator (e.g., fingerprint sensor)
-                userVerification: 'preferred', // Prefer biometric verification
-            },
-            timeout: 60000, // 60 seconds
-        });
+       const options = await generateRegistrationOptions({
+  rpID,
+  rpName,
+  userID: userId,        // No need for TextEncoder here
+  userName: userId,
+  attestationType: 'none',
+  excludeCredentials,
+  authenticatorSelection: {
+    authenticatorAttachment: "platform",   // ✅ force fingerprint sensor
+    residentKey: "preferred",
+    userVerification: "required",          // ✅ force biometric scan
+  },
+  timeout: 60000,
+});
+
 
         // Store the challenge on the server for verification later
         config.currentChallenge = options.challenge;
