@@ -6,8 +6,10 @@ import {
     verifyRegistrationResponse,
     generateAuthenticationOptions,
     verifyAuthenticationResponse,
+    // Corrected import path for helper functions
+    isoUint8ArrayToBase64URL,
+    isoBase64URLToUint8Array
 } from '@simplewebauthn/server';
-import { isoUint8ArrayToBase64URL, isoBase64URLToUint8Array } from '@simplewebauthn/server/helpers';
 
 
 const router = express.Router();
