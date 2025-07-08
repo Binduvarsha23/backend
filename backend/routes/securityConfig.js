@@ -7,7 +7,7 @@ import {
     generateAuthenticationOptions,
     verifyAuthenticationResponse,
 } from '@simplewebauthn/server'; // Core functions imported from main package
-import { isoBase64URL } from '@simplewebauthn/server/helpers'; // Helper function imported from helpers subpath
+import { base64url } from '@simplewebauthn/server/helpers';
 
 
 const router = express.Router();
@@ -117,7 +117,7 @@ router.get("/generate-registration-options/:userId", async (req, res) => {
 
         // Credentials already registered for this user
         const excludeCredentials = config.biometricCredentials.map(cred => ({
-            id: isoBase64URL(cred.credentialID),
+            id: base64url.encode(cred.credentialID),
             type: 'public-key',
             transports: cred.transports || [],
         }));
@@ -174,10 +174,10 @@ router.post("/verify-registration/:userId", async (req, res) => {
         if (verified && registrationInfo) {
             const { credentialID, credentialPublicKey, counter, transports } = registrationInfo;
 
-            // Convert Uint8Arrays to Base64URL strings for storage
+            // Convert Uint8Arrays to base64url.encode strings for storage
             const newCredential = {
-                credentialID: isoBase64URL(credentialID),
-                publicKey: isoBase64URL(credentialPublicKey),
+                credentialID: base64url.encode(credentialID),
+                publicKey: base64url.encode(credentialPublicKey),
                 counter,
                 transports: transports || [],
             };
@@ -215,7 +215,7 @@ router.get("/generate-authentication-options/:userId", async (req, res) => {
 
         // Convert stored credential IDs back to Uint8Array for options
         const allowCredentials = config.biometricCredentials.map(cred => ({
-            id: isoBase64URL(cred.credentialID),
+            id: base64url.encode(cred.credentialID),
             type: 'public-key',
             transports: cred.transports || [],
         }));
@@ -265,7 +265,7 @@ router.post("/verify", async (req, res) => {
 
             // Find the credential that matches the one used by the client
             const credential = config.biometricCredentials.find(
-                (cred) => isoBase64URL(authenticationResponse.rawId) === cred.credentialID
+                (cred) => base64url.encode(authenticationResponse.rawId) === cred.credentialID
             );
 
             if (!credential) {
@@ -279,8 +279,8 @@ router.post("/verify", async (req, res) => {
                     expectedOrigin: origin,
                     expectedRPID: rpID,
                     authenticator: {
-                        credentialID: isoBase64URL(credential.credentialID),
-                        credentialPublicKey: isoBase64URL(credential.publicKey),
+                        credentialID: base64url.encode(credential.credentialID),
+                        credentialPublicKey: base64url.encode(credential.publicKey),
                         counter: credential.counter,
                     },
                     requireUserVerification: true,
