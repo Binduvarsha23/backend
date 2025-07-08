@@ -6,10 +6,9 @@ import {
     verifyRegistrationResponse,
     generateAuthenticationOptions,
     verifyAuthenticationResponse,
-    // Corrected import path for helper functions
-    isoUint8ArrayToBase64URL,
-    isoBase64URLToUint8Array
-} from '@simplewebauthn/server';
+    // Corrected import path for helper functions as per user request
+    isoBase64URL // Using isoBase64URL for both conversions
+} from '@simplewebauthn/server/helpers'; // Importing from helpers as requested
 
 
 const router = express.Router();
@@ -25,8 +24,8 @@ const transporter = nodemailer.createTransport({
 
 // Relying Party (RP) configuration for WebAuthn
 // IMPORTANT: These should be environment variables in production!
-const rpID = process.env.RP_ID || 'localhost' || 'frontend-beryl-five-64.vercel.app' || 'f33ghqgz-3000.inc1.devtunnels.ms'; // Your domain (e.g., 'your-app-domain.com')
-const origin = process.env.ORIGIN || 'http://localhost:3000' || 'https://f33ghqgz-3000.inc1.devtunnels.ms/' || 'https://frontend-beryl-five-64.vercel.app/'; // Your frontend URL (e.g., 'https://your-app-domain.com')
+const rpID = process.env.RP_ID || 'localhost'; // Your domain (e.g., 'your-app-domain.com')
+const origin = process.env.ORIGIN || 'http://localhost:3000'; // Your frontend URL (e.g., 'https://your-app-domain.com')
 const rpName = process.env.RP_NAME || 'Vault App'; // A user-friendly name for your app
 
 // --- Existing Routes (No change, just context) ---
@@ -119,7 +118,7 @@ router.get("/generate-registration-options/:userId", async (req, res) => {
 
         // Credentials already registered for this user
         const excludeCredentials = config.biometricCredentials.map(cred => ({
-            id: isoBase64URLToUint8Array(cred.credentialID),
+            id: isoBase64URL(cred.credentialID), // Changed to isoBase64URL
             type: 'public-key',
             transports: cred.transports || [],
         }));
@@ -176,8 +175,8 @@ router.post("/verify-registration/:userId", async (req, res) => {
 
             // Convert Uint8Arrays to Base64URL strings for storage
             const newCredential = {
-                credentialID: isoUint8ArrayToBase64URL(credentialID),
-                publicKey: isoUint8ArrayToBase64URL(credentialPublicKey),
+                credentialID: isoBase64URL(credentialID), // Changed to isoBase64URL
+                publicKey: isoBase64URL(credentialPublicKey), // Changed to isoBase64URL
                 counter,
                 transports: transports || [],
             };
@@ -215,7 +214,7 @@ router.get("/generate-authentication-options/:userId", async (req, res) => {
 
         // Convert stored credential IDs back to Uint8Array for options
         const allowCredentials = config.biometricCredentials.map(cred => ({
-            id: isoBase64URLToUint8Array(cred.credentialID),
+            id: isoBase64URL(cred.credentialID), // Changed to isoBase64URL
             type: 'public-key',
             transports: cred.transports || [],
         }));
@@ -265,7 +264,7 @@ router.post("/verify", async (req, res) => {
 
             // Find the credential that matches the one used by the client
             const credential = config.biometricCredentials.find(
-                (cred) => isoUint8ArrayToBase64URL(isoBase64URLToUint8Array(authenticationResponse.rawId)) === cred.credentialID
+                (cred) => isoBase64URL(authenticationResponse.rawId) === cred.credentialID // Changed to isoBase64URL
             );
 
             if (!credential) {
@@ -279,8 +278,8 @@ router.post("/verify", async (req, res) => {
                     expectedOrigin: origin,
                     expectedRPID: rpID,
                     authenticator: {
-                        credentialID: isoBase64URLToUint8Array(credential.credentialID),
-                        credentialPublicKey: isoBase64URLToUint8Array(credential.publicKey),
+                        credentialID: isoBase64URL(credential.credentialID), // Changed to isoBase64URL
+                        credentialPublicKey: isoBase64URL(credential.publicKey), // Changed to isoBase64URL
                         counter: credential.counter,
                     },
                     requireUserVerification: true,
