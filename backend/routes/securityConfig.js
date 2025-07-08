@@ -1,21 +1,31 @@
 import express from "express";
 import SecurityConfig from "../models/SecurityConfig.js";
 import nodemailer from 'nodemailer'; // Import Nodemailer
+import {
+    generateRegistrationOptions,
+    verifyRegistrationResponse,
+    generateAuthenticationOptions,
+    verifyAuthenticationResponse,
+} from '@simplewebauthn/server';
+import { isoUint8ArrayToBase64URL, isoBase64URLToUint8Array } from '@simplewebauthn/server/helpers';
+
 
 const router = express.Router();
 
 // Configure Nodemailer transporter
-// IMPORTANT: Use environment variables for user and pass in production!
 const transporter = nodemailer.createTransport({
-    service: 'gmail', // You can use other services like 'Outlook365', 'SendGrid', or direct SMTP
+    service: 'gmail',
     auth: {
-        user: process.env.EMAIL_USER, // Your sending email address (e.g., from .env)
-        pass: process.env.EMAIL_PASS, // Your email password or app-specific password (from .env)
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
     },
-    // For Gmail, if you have 2FA enabled, you might need to generate an "App password"
-    // via your Google Account security settings.
 });
 
+// Relying Party (RP) configuration for WebAuthn
+// IMPORTANT: These should be environment variables in production!
+const rpID = process.env.RP_ID || 'localhost' || 'frontend-beryl-five-64.vercel.app' || 'f33ghqgz-3000.inc1.devtunnels.ms'; // Your domain (e.g., 'your-app-domain.com')
+const origin = process.env.ORIGIN || 'http://localhost:3000' || 'https://f33ghqgz-3000.inc1.devtunnels.ms/' || 'https://frontend-beryl-five-64.vercel.app/'; // Your frontend URL (e.g., 'https://your-app-domain.com')
+const rpName = process.env.RP_NAME || 'Vault App'; // A user-friendly name for your app
 
 // --- Existing Routes (No change, just context) ---
 
@@ -50,7 +60,7 @@ router.put("/:userId", async (req, res) => {
     try {
         const update = {};
 
-        // Exclusivity logic
+        // Exclusivity logic for password, pin, pattern
         if (req.body.passwordEnabled) {
             update.passwordEnabled = true;
             update.pinEnabled = false;
@@ -68,11 +78,12 @@ router.put("/:userId", async (req, res) => {
             if (req.body.patternHash) update.patternHash = req.body.patternHash;
         }
 
-        // Individual flags
+        // Biometric is handled separately as it can coexist
         if (typeof req.body.biometricEnabled === "boolean") {
             update.biometricEnabled = req.body.biometricEnabled;
         }
 
+        // Individual flags for disabling
         if (req.body.passwordEnabled === false) update.passwordEnabled = false;
         if (req.body.pinEnabled === false) update.pinEnabled = false;
         if (req.body.patternEnabled === false) update.patternEnabled = false;
@@ -92,15 +103,150 @@ router.put("/:userId", async (req, res) => {
     }
 });
 
+// --- NEW: WebAuthn Registration Routes ---
+
+// GET /api/security-config/generate-registration-options/:userId
+// Generates options for the frontend to start a biometric registration
+router.get("/generate-registration-options/:userId", async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const config = await SecurityConfig.findOne({ userId });
+        if (!config) {
+            return res.status(404).json({ message: "User config not found." });
+        }
+
+        // Credentials already registered for this user
+        const excludeCredentials = config.biometricCredentials.map(cred => ({
+            id: isoBase64URLToUint8Array(cred.credentialID),
+            type: 'public-key',
+            transports: cred.transports || [],
+        }));
+
+        const options = await generateRegistrationOptions({
+            rpID,
+            rpName,
+            userID: userId,
+            userName: userId, // Use userId as username for simplicity, or actual user email/username
+            attestationType: 'none', // Or 'direct'/'indirect' for stronger attestation
+            excludeCredentials,
+            authenticatorSelection: {
+                residentKey: 'preferred', // Store credential on authenticator (e.g., fingerprint sensor)
+                userVerification: 'preferred', // Prefer biometric verification
+            },
+            timeout: 60000, // 60 seconds
+        });
+
+        // Store the challenge on the server for verification later
+        config.currentChallenge = options.challenge;
+        await config.save();
+
+        res.json(options);
+    } catch (err) {
+        console.error("Error generating registration options:", err);
+        res.status(500).json({ message: "Failed to generate registration options." });
+    }
+});
+
+// POST /api/security-config/verify-registration/:userId
+// Verifies the response from the frontend after biometric registration
+router.post("/verify-registration/:userId", async (req, res) => {
+    const { userId } = req.params;
+    const { attestationResponse } = req.body; // This is the response from navigator.credentials.create()
+
+    try {
+        const config = await SecurityConfig.findOne({ userId });
+        if (!config || !config.currentChallenge) {
+            return res.status(400).json({ message: "Registration challenge not found or expired." });
+        }
+
+        const verification = await verifyRegistrationResponse({
+            response: attestationResponse,
+            expectedChallenge: config.currentChallenge,
+            expectedOrigin: origin,
+            expectedRPID: rpID,
+            requireUserVerification: true, // Ensure user verification was performed
+        });
+
+        const { verified, registrationInfo } = verification;
+
+        if (verified && registrationInfo) {
+            const { credentialID, credentialPublicKey, counter, credentialDeviceType, credentialBackedUp, transports } = registrationInfo;
+
+            // Convert Uint8Arrays to Base64URL strings for storage
+            const newCredential = {
+                credentialID: isoUint8ArrayToBase64URL(credentialID),
+                publicKey: isoUint8ArrayToBase64URL(credentialPublicKey),
+                counter,
+                transports: transports || [],
+            };
+
+            // Add the new credential to the user's config
+            config.biometricCredentials.push(newCredential);
+            config.biometricEnabled = true; // Enable biometric if registration is successful
+            config.currentChallenge = null; // Clear the challenge
+            await config.save();
+
+            res.json({ success: true, message: "Biometric registered successfully." });
+        } else {
+            res.status(400).json({ message: "Biometric registration failed verification." });
+        }
+    } catch (err) {
+        console.error("Error verifying registration:", err);
+        res.status(500).json({ message: "Failed to verify biometric registration." });
+    }
+});
+
+// --- NEW: WebAuthn Authentication Routes ---
+
+// GET /api/security-config/generate-authentication-options/:userId
+// Generates options for the frontend to start a biometric authentication
+router.get("/generate-authentication-options/:userId", async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const config = await SecurityConfig.findOne({ userId });
+        if (!config) {
+            return res.status(404).json({ message: "User config not found." });
+        }
+        if (!config.biometricEnabled || config.biometricCredentials.length === 0) {
+            return res.status(400).json({ message: "Biometric not enabled or no credentials registered." });
+        }
+
+        // Convert stored credential IDs back to Uint8Array for options
+        const allowCredentials = config.biometricCredentials.map(cred => ({
+            id: isoBase64URLToUint8Array(cred.credentialID),
+            type: 'public-key',
+            transports: cred.transports || [],
+        }));
+
+        const options = await generateAuthenticationOptions({
+            rpID,
+            allowCredentials,
+            userVerification: 'preferred',
+            timeout: 60000,
+        });
+
+        // Store the challenge on the server for verification later
+        config.currentChallenge = options.challenge;
+        await config.save();
+
+        res.json(options);
+    } catch (err) {
+        console.error("Error generating authentication options:", err);
+        res.status(500).json({ message: "Failed to generate authentication options." });
+    }
+});
+
+
+// --- MODIFIED: POST /api/security-config/verify ---
 // Verify route for password, pin, pattern, biometric
 router.post("/verify", async (req, res) => {
-    const { userId, value, method } = req.body;
+    const { userId, value, method, authenticationResponse } = req.body; // Added authenticationResponse for biometric
 
     try {
         const config = await SecurityConfig.findOne({ userId });
         if (!config) return res.status(404).json({ message: "Config not found" });
 
-        const bcrypt = await import("bcryptjs");
+        const bcrypt = await import("bcryptjs"); // Dynamic import for bcryptjs
 
         let isMatch = false;
 
@@ -111,7 +257,49 @@ router.post("/verify", async (req, res) => {
         } else if (method === "pattern" && config.patternHash) {
             isMatch = await bcrypt.compare(value, config.patternHash);
         } else if (method === "biometric") {
-            isMatch = true; // browser handles biometric check
+            if (!authenticationResponse || !config.currentChallenge) {
+                return res.status(400).json({ message: "Missing biometric authentication response or challenge." });
+            }
+
+            // Find the credential that matches the one used by the client
+            const credential = config.biometricCredentials.find(
+                (cred) => isoUint8ArrayToBase64URL(isoBase64URLToUint8Array(authenticationResponse.rawId)) === cred.credentialID
+            );
+
+            if (!credential) {
+                return res.status(400).json({ message: "Biometric credential not found for this user." });
+            }
+
+            try {
+                const verification = await verifyAuthenticationResponse({
+                    response: authenticationResponse,
+                    expectedChallenge: config.currentChallenge,
+                    expectedOrigin: origin,
+                    expectedRPID: rpID,
+                    authenticator: {
+                        credentialID: isoBase64URLToUint8Array(credential.credentialID),
+                        credentialPublicKey: isoBase64URLToUint8Array(credential.publicKey),
+                        counter: credential.counter,
+                    },
+                    requireUserVerification: true,
+                });
+
+                const { verified, authenticationInfo } = verification;
+
+                if (verified) {
+                    // Update the counter to prevent replay attacks
+                    credential.counter = authenticationInfo.newCounter;
+                    config.currentChallenge = null; // Clear the challenge after successful verification
+                    await config.save(); // Save the updated counter and cleared challenge
+                    isMatch = true;
+                } else {
+                    console.error("Biometric authentication verification failed.");
+                    isMatch = false;
+                }
+            } catch (authErr) {
+                console.error("Error during biometric authentication verification:", authErr);
+                return res.status(401).json({ message: "Biometric authentication failed." });
+            }
         }
 
         if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
@@ -207,9 +395,7 @@ router.post("/verify-security-answer", async (req, res) => {
     }
 });
 
-// --- MODIFIED: POST /api/security-config/request-method-reset ---
-// This route is called when a user wants to reset their PIN/Password/Pattern via email.
-// It now expects userId, email, and the specific method to reset.
+// POST /api/security-config/request-method-reset
 router.post("/request-method-reset", async (req, res) => {
     const { userId, email, methodToReset } = req.body;
 
@@ -242,8 +428,8 @@ router.post("/request-method-reset", async (req, res) => {
 
         // --- Send the email with the reset code ---
         const mailOptions = {
-            from: process.env.EMAIL_USER, // Your configured sender email
-            to: email, // The user's email address
+            from: process.env.EMAIL_USER,
+            to: email,
             subject: `Vault Account: ${methodToReset} Reset Code`,
             html: `
                 <p>Hello,</p>
@@ -267,14 +453,12 @@ router.post("/request-method-reset", async (req, res) => {
 
     } catch (err) {
         console.error("Error requesting method reset or sending email:", err);
-        // Provide generic error message to frontend for security
         res.status(500).json({ message: "Failed to send reset email. Please try again later." });
     }
 });
 
 
-// --- MODIFIED: POST /api/security-config/reset-method-with-token ---
-// This route is called when a user submits the email-sent code and their new method value.
+// POST /api/security-config/reset-method-with-token
 router.post("/reset-method-with-token", async (req, res) => {
     const { userId, token, methodType, newValue } = req.body;
 
