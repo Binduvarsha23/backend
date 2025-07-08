@@ -7,6 +7,7 @@ const healthFileSchema = new mongoose.Schema({
   fileName: { type: String, required: true },
   fileData: { type: String, required: true }, // base64 string
   createdAt: { type: Date, default: Date.now },
+  favorite: { type: Boolean, default: false },
 });
 
 export default mongoose.model('HealthFile', healthFileSchema);
