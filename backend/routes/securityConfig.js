@@ -112,7 +112,7 @@ router.get("/generate-registration-options/:userId", async (req, res) => {
     try {
         const config = await SecurityConfig.findOne({ userId });
         if (!config) {
-            return res.status(404).json({ message: "User config not forund." });
+            return res.status(404).json({ message: "User config not found." });
         }
 
         // Credentials already registered for this user
@@ -125,8 +125,8 @@ router.get("/generate-registration-options/:userId", async (req, res) => {
         const options = await generateRegistrationOptions({
             rpID,
             rpName,
-            userID: userId,
-            userName: userId, // Use userId as username for simplicity, or actual user email/username
+            userID: new TextEncoder().encode(userId), // Convert userId string to Uint8Array
+            userName: userId, // userName can still be a string
             attestationType: 'none', // Or 'direct'/'indirect' for stronger attestation
             excludeCredentials,
             authenticatorSelection: {
@@ -170,7 +170,7 @@ router.post("/verify-registration/:userId", async (req, res) => {
         const { verified, registrationInfo } = verification;
 
         if (verified && registrationInfo) {
-            const { credentialID, credentialPublicKey, counter, credentialDeviceType, credentialBackedUp, transports } = registrationInfo;
+            const { credentialID, credentialPublicKey, counter, transports } = registrationInfo;
 
             // Convert Uint8Arrays to Base64URL strings for storage
             const newCredential = {
