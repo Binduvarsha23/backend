@@ -1,8 +1,21 @@
 import express from "express";
 import SecurityConfig from "../models/SecurityConfig.js";
-// Removed: import { getAuth } from 'firebase-admin/auth'; // Not needed if Firebase Admin is not set up
+import nodemailer from 'nodemailer'; // Import Nodemailer
 
 const router = express.Router();
+
+// Configure Nodemailer transporter
+// IMPORTANT: Use environment variables for user and pass in production!
+const transporter = nodemailer.createTransport({
+    service: 'gmail', // You can use other services like 'Outlook365', 'SendGrid', or direct SMTP
+    auth: {
+        user: process.env.EMAIL_USER, // Your sending email address (e.g., from .env)
+        pass: process.env.EMAIL_PASS, // Your email password or app-specific password (from .env)
+    },
+    // For Gmail, if you have 2FA enabled, you might need to generate an "App password"
+    // via your Google Account security settings.
+});
+
 
 // --- Existing Routes (No change, just context) ---
 
@@ -182,7 +195,6 @@ router.post("/verify-security-answer", async (req, res) => {
         );
 
         if (match.includes(true)) {
-            // Optional: Update lastVerifiedAt if security questions also count as a verification method
             config.lastVerifiedAt = new Date();
             await config.save();
             return res.json({ success: true });
@@ -195,113 +207,125 @@ router.post("/verify-security-answer", async (req, res) => {
     }
 });
 
-// --- New Routes for Email-based Password Reset ---
+// --- MODIFIED: POST /api/security-config/request-method-reset ---
+// This route is called when a user wants to reset their PIN/Password/Pattern via email.
+// It now expects userId, email, and the specific method to reset.
+router.post("/request-method-reset", async (req, res) => {
+    const { userId, email, methodToReset } = req.body;
 
-// POST /api/security-config/request-password-reset
-// This route is called when a user clicks "Forgot Password" and the frontend has their userId and email.
-router.post("/request-password-reset", async (req, res) => {
-    // Now expecting userId directly from frontend, along with email
-    const { userId, email } = req.body; // Changed from just { email }
+    if (!userId || !email || !methodToReset) {
+        return res.status(400).json({ message: "User ID, email, and method to reset are required." });
+    }
 
-    if (!userId || !email) {
-        return res.status(400).json({ message: "User ID and email are required." });
+    const allowedMethods = ['password', 'pin', 'pattern'];
+    if (!allowedMethods.includes(methodToReset)) {
+        return res.status(400).json({ message: "Invalid method specified for reset." });
     }
 
     try {
-        // 1. Find the security config for the user using the provided userId
         const config = await SecurityConfig.findOne({ userId });
         if (!config) {
-            // Return a generic message for security, even if config not found
-            // This prevents attackers from knowing if an email/userId exists
-            return res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+            // For security, always return a generic success message to prevent user enumeration
+            return res.json({ message: "If an account with that email exists, a reset code has been sent." });
         }
 
-        // 2. Generate a secure, time-limited token
         const crypto = await import("crypto");
-        const resetToken = crypto.randomBytes(32).toString("hex"); // Unhashed token for email
+        const resetToken = crypto.randomBytes(32).toString("hex"); // Plain token to send in email
         const bcrypt = await import("bcryptjs");
-        const hashedToken = await bcrypt.hash(resetToken, 10); // Hashed token for storage
+        const hashedToken = await bcrypt.hash(resetToken, 10); // Hashed token to store
 
-        // Token expires in 1 hour
-        const expiryDate = new Date(Date.now() + 3600000); // 1 hour from now
+        const expiryDate = new Date(Date.now() + 3600000); // Token valid for 1 hour
 
-        // 3. Store the hashed token and expiry in the database
-        config.passwordResetToken = hashedToken;
+        config.passwordResetToken = hashedToken; // Reusing this field for any method's reset token
         config.passwordResetTokenExpiry = expiryDate;
         await config.save();
 
-        // 4. TODO: Send email to the user with the reset link
-        // Replace 'YOUR_FRONTEND_RESET_PAGE_URL' with the actual URL of your frontend
-        // page where the user will enter their new password (e.g., /reset-password?token=...)
-        const resetLink = `YOUR_FRONTEND_RESET_PAGE_URL?token=${resetToken}&userId=${userId}`;
-        console.log(`Password reset link for ${email}: ${resetLink}`);
-        // Example using Nodemailer (you'd need to set up nodemailer transport):
-        /*
-        const nodemailer = await import('nodemailer');
-        const transporter = nodemailer.createTransport({
-            service: 'gmail', // or your SMTP details
-            auth: {
-                user: 'your_email@gmail.com',
-                pass: 'your_email_password' // Use app password for Gmail
-            }
-        });
-        await transporter.sendMail({
-            from: 'your_email@gmail.com',
-            to: email,
-            subject: 'Password Reset Request for Your Vault Account',
-            html: `<p>You requested a password reset for your Vault account.</p>
-                   <p>Please click on this link to reset your password: <a href="${resetLink}">${resetLink}</a></p>
-                   <p>This link is valid for 1 hour.</p>
-                   <p>If you did not request this, please ignore this email.</p>`
-        });
-        */
+        // --- Send the email with the reset code ---
+        const mailOptions = {
+            from: process.env.EMAIL_USER, // Your configured sender email
+            to: email, // The user's email address
+            subject: `Vault Account: ${methodToReset} Reset Code`,
+            html: `
+                <p>Hello,</p>
+                <p>You have requested to reset your <strong>${methodToReset}</strong> for your Vault account.</p>
+                <p>Please use the following code to reset your ${methodToReset} within the application:</p>
+                <h3 style="color: #007bff; font-size: 24px; text-align: center; border: 1px solid #007bff; padding: 10px; border-radius: 5px;">${resetToken}</h3>
+                <p>This code is valid for 1 hour.</p>
+                <p>If you did not request this, please ignore this email.</p>
+                <p>Thank you,</p>
+                <p>The Vault Team</p>
+            `,
+        };
 
-        res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+        await transporter.sendMail(mailOptions);
+        console.log(`Reset email sent to ${email} for ${methodToReset}.`);
+
+        res.json({
+            success: true,
+            message: `A reset code has been sent to your email (${email}). Please check your inbox.`,
+        });
+
     } catch (err) {
-        console.error("Error requesting password reset:", err);
-        res.status(500).json({ message: "Error requesting password reset." });
+        console.error("Error requesting method reset or sending email:", err);
+        // Provide generic error message to frontend for security
+        res.status(500).json({ message: "Failed to send reset email. Please try again later." });
     }
 });
 
 
-// POST /api/security-config/reset-password-with-token
-// This route is called when a user submits a new password from the reset link page.
-router.post("/reset-password-with-token", async (req, res) => {
-    const { userId, token, newPassword } = req.body;
+// --- MODIFIED: POST /api/security-config/reset-method-with-token ---
+// This route is called when a user submits the email-sent code and their new method value.
+router.post("/reset-method-with-token", async (req, res) => {
+    const { userId, token, methodType, newValue } = req.body;
+
+    if (!userId || !token || !methodType || !newValue) {
+        return res.status(400).json({ message: "All required fields are missing." });
+    }
 
     try {
         const config = await SecurityConfig.findOne({ userId });
         if (!config) {
-            return res.status(400).json({ message: "Invalid or expired token." });
+            return res.status(400).json({ message: "Invalid or expired reset code." });
         }
 
         // 1. Check if token exists and is not expired
         if (!config.passwordResetToken || !config.passwordResetTokenExpiry || config.passwordResetTokenExpiry < new Date()) {
-            return res.status(400).json({ message: "Invalid or expired token." });
+            return res.status(400).json({ message: "Invalid or expired reset code. Please request a new one." });
         }
 
         const bcrypt = await import("bcryptjs");
-        // 2. Compare the provided token with the stored hashed token
+        // 2. Compare the provided token (plain text from email) with the stored hashed token
         const isTokenValid = await bcrypt.compare(token, config.passwordResetToken);
 
         if (!isTokenValid) {
-            return res.status(400).json({ message: "Invalid or expired token." });
+            return res.status(400).json({ message: "Invalid reset code. Please try again." });
         }
 
-        // 3. Hash the new password
-        const newPasswordHash = await bcrypt.hash(newPassword, 10);
+        // 3. Hash the new value (password, pin, or pattern)
+        const hashedNewValue = await bcrypt.hash(newValue, 10);
 
-        // 4. Update the user's password and clear token fields
-        config.passwordHash = newPasswordHash;
-        config.passwordEnabled = true; // Ensure password login is enabled if it wasn't
-        config.passwordResetToken = null;
-        config.passwordResetTokenExpiry = null;
+        // 4. Update the specific method's hash and clear token fields
+        if (methodType === 'password') {
+            config.passwordHash = hashedNewValue;
+            config.passwordEnabled = true; // Ensure it's enabled if reset
+        } else if (methodType === 'pin') {
+            config.pinHash = hashedNewValue;
+            config.pinEnabled = true; // Ensure it's enabled if reset
+        } else if (methodType === 'pattern') {
+            config.patternHash = hashedNewValue;
+            config.patternEnabled = true; // Ensure it's enabled if reset
+        } else {
+            return res.status(400).json({ message: "Invalid method type provided for reset." });
+        }
+
+        config.passwordResetToken = null; // Clear the token
+        config.passwordResetTokenExpiry = null; // Clear the expiry
         await config.save();
 
-        res.json({ success: true, message: "Password has been reset successfully." });
+        res.json({ success: true, message: `${methodType} has been reset successfully.` });
     } catch (err) {
-        console.error("Error resetting password with token:", err);
-        res.status(500).json({ message: "Error resetting password." });
+        console.error("Error resetting method with token:", err);
+        res.status(500).json({ message: "Error resetting method. Please try again." });
     }
 });
 
