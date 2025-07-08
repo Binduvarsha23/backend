@@ -146,7 +146,12 @@ router.put("/security-questions/:userId", async (req, res) => {
 
     const config = await SecurityConfig.findOneAndUpdate(
       { userId: req.params.userId },
-      { $set: { securityQuestions: hashedQuestions } },
+      {
+        $set: {
+          securityQuestions: hashedQuestions,
+          securityQuestionsLastUpdatedAt: new Date(), // Set timestamp on update
+        },
+      },
       { new: true }
     );
 
@@ -155,6 +160,7 @@ router.put("/security-questions/:userId", async (req, res) => {
     res.status(500).json({ message: "Error saving questions" });
   }
 });
+
 // POST /api/security-config/verify-security-answer
 router.post("/verify-security-answer", async (req, res) => {
   const { userId, question, answer } = req.body;
