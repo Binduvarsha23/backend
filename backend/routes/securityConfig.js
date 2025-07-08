@@ -22,12 +22,9 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-// Relying Party (RP) configuration for WebAuthn
-// IMPORTANT: These should be environment variables in production!
-const rpID = process.env.RP_ID || 'localhost'; // Your domain (e.g., 'your-app-domain.com')
-const origin = process.env.ORIGIN || 'http://localhost:3000'; // Your frontend URL (e.g., 'https://your-app-domain.com')
+const rpID = process.env.RP_ID || 'localhost' || 'frontend-beryl-five-64.vercel.app' || 'f33ghqgz-3000.inc1.devtunnels.ms'; // Your domain (e.g., 'your-app-domain.com')
+const origin = process.env.ORIGIN || 'http://localhost:3000' || 'https://f33ghqgz-3000.inc1.devtunnels.ms/' || 'https://frontend-beryl-five-64.vercel.app/'; // Your frontend URL (e.g., 'https://your-app-domain.com')
 const rpName = process.env.RP_NAME || 'Vault App'; // A user-friendly name for your app
-
 // --- Existing Routes (No change, just context) ---
 
 // Get user's config
