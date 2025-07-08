@@ -125,7 +125,7 @@ router.get("/generate-registration-options/:userId", async (req, res) => {
        const options = await generateRegistrationOptions({
   rpID,
   rpName,
-  userID: userId,        // No need for TextEncoder here
+  userID: Buffer.from(userId, 'utf8'),        // No need for TextEncoder here
   userName: userId,
   attestationType: 'none',
   excludeCredentials,
