@@ -26,24 +26,28 @@ const securityConfigSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-patternHash: { type: String, default: null },
-patternEnabled: { type: Boolean, default: false },
-biometricEnabled: { type: Boolean, default: false },
+  patternHash: { type: String, default: null },
+  patternEnabled: { type: Boolean, default: false },
+  biometricEnabled: { type: Boolean, default: false },
   updatedAt: {
     type: Date,
     default: Date.now
   },
   lastVerifiedAt: {
-  type: Date,
-  default: null,
-},
+    type: Date,
+    default: null,
+  },
   securityQuestions: [
-  {
-    question: { type: String },
-    answerHash: { type: String },
-  }
-],
-
+    {
+      question: { type: String },
+      answerHash: { type: String },
+    }
+  ],
+  // New field to track last update of security questions
+  securityQuestionsLastUpdatedAt: {
+    type: Date,
+    default: null,
+  },
 });
 
 export default mongoose.model('SecurityConfig', securityConfigSchema);
