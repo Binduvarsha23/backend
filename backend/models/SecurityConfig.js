@@ -43,8 +43,16 @@ const securityConfigSchema = new mongoose.Schema({
       answerHash: { type: String },
     }
   ],
-  // New field to track last update of security questions
   securityQuestionsLastUpdatedAt: {
+    type: Date,
+    default: null,
+  },
+  // New fields for password reset via email
+  passwordResetToken: {
+    type: String,
+    default: null,
+  },
+  passwordResetTokenExpiry: {
     type: Date,
     default: null,
   },
