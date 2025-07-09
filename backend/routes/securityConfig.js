@@ -331,8 +331,11 @@ router.post("/reset-method-with-token", async (req, res) => {
         console.error("Error resetting method with token:", err);
         res.status(500).json({ message: "Error resetting method. Please try again." });
     }
-});
-const bufferFromBase64url = (val) => Buffer.from(base64url.toBuffer(val));
+});const bufferFromBase64url = (val) => {
+  if (!val || typeof val !== "string") throw new Error("Invalid base64url value");
+  return Buffer.from(base64url.toBuffer(val));
+};
+
 
 // Biometric Registration
 router.get("/biometric/generate-registration-options/:userId", async (req, res) => {
