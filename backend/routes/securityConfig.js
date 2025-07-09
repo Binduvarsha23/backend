@@ -389,22 +389,29 @@ router.post("/biometric/verify-registration/:userId", async (req, res) => {
   res.json({ success: true });
 });
 
-// Biometric Authentication
 router.get("/biometric/generate-authentication-options/:userId", async (req, res) => {
   const userId = req.params.userId;
   const config = await SecurityConfig.findOne({ userId });
-  if (!config || !config.biometricCredentials.length) {
-    return res.status(404).json({ message: "No credentials found" });
+  if (!config) return res.status(404).json({ message: "Config not found" });
+
+  let allowCredentials = [];
+  try {
+    allowCredentials = (config.biometricCredentials || [])
+      .filter(cred => cred.credentialID)
+      .map((cred) => ({
+        id: bufferFromBase64url(cred.credentialID),
+        type: "public-key",
+        transports: cred.transports || [],
+      }));
+  } catch (err) {
+    console.error("Failed to parse biometric credentials:", err);
+    return res.status(500).json({ message: "Invalid stored biometric credentials." });
   }
 
   const options = await generateAuthenticationOptions({
     timeout: 60000,
     rpID: "localhost",
-    allowCredentials: config.biometricCredentials.map((cred) => ({
-      id: bufferFromBase64url(cred.credentialID),
-      type: "public-key",
-      transports: cred.transports || [],
-    })),
+    allowCredentials,
   });
 
   config.currentChallenge = options.challenge;
