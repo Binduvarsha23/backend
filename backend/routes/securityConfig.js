@@ -81,6 +81,9 @@ router.put("/:userId", async (req, res) => {
         if (req.body.passwordEnabled === false) update.passwordEnabled = false;
         if (req.body.pinEnabled === false) update.pinEnabled = false;
         if (req.body.patternEnabled === false) update.patternEnabled = false;
+if (req.body.biometricEnabled === false) {
+  update.biometricCredentials = []; // Clear credentials on disable
+}
 
         update.updatedAt = new Date();
 
