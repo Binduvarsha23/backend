@@ -134,24 +134,6 @@ router.post("/verify", async (req, res) => {
     }
 });
 
-// Check if user has verified in last 3 hours
-router.get("/check-verification/:userId", async (req, res) => {
-    try {
-        const config = await SecurityConfig.findOne({ userId: req.params.userId });
-        if (!config) return res.status(404).json({ message: "Config not found" });
-
-        const last = config.lastVerifiedAt;
-        const now = new Date();
-
-        const verifiedRecently =
-            last && now - new Date(last) < 3 * 1000; // 3 hours
-
-        res.json({ verifiedRecently });
-    } catch (err) {
-        res.status(500).json({ message: "Error checking verification" });
-    }
-});
-
 // PUT /api/security-config/security-questions/:userId
 router.put("/security-questions/:userId", async (req, res) => {
     const { questions } = req.body; // array of { question, answer }
