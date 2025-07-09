@@ -361,7 +361,7 @@ router.get("/biometric/generate-registration-options/:userId", async (req, res) 
   userID: Buffer.from(userId, "utf-8"),  // FIXED
   userName: `user-${userId}`,
   excludeCredentials: config.biometricCredentials.map((cred) => ({
-    id: bufferFromBase64url(cred.credentialID),
+    id: Uint8Array.from(base64url.toBuffer(cred.credentialID)),
     type: "public-key",
   })),
 });
