@@ -1,7 +1,13 @@
 import express from "express";
 import SecurityConfig from "../models/SecurityConfig.js";
 import nodemailer from 'nodemailer'; // Import Nodemailer
-
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from "@simplewebauthn/server";
+import base64url from "base64url";
 const router = express.Router();
 
 // Configure Nodemailer transporter
@@ -341,5 +347,118 @@ router.post("/reset-method-with-token", async (req, res) => {
         res.status(500).json({ message: "Error resetting method. Please try again." });
     }
 });
+const bufferFromBase64url = (val) => Buffer.from(base64url.toBuffer(val));
+
+// Biometric Registration
+router.get("/biometric/generate-registration-options/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  const config = await SecurityConfig.findOne({ userId });
+  if (!config) return res.status(404).json({ message: "Config not found" });
+
+  const options = await generateRegistrationOptions({
+    rpName: "Secure Vault",
+    rpID: "localhost",
+    userID: Buffer.from(userId),
+    userName: `user-${userId}`,
+    excludeCredentials: config.biometricCredentials.map((cred) => ({
+      id: bufferFromBase64url(cred.credentialID),
+      type: "public-key",
+    })),
+  });
+
+  config.currentChallenge = options.challenge;
+  await config.save();
+
+  res.json(options);
+});
+
+router.post("/biometric/verify-registration/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  const config = await SecurityConfig.findOne({ userId });
+  if (!config) return res.status(404).json({ message: "Config not found" });
+
+  const expectedChallenge = config.currentChallenge;
+
+  const verification = await verifyRegistrationResponse({
+    response: req.body.attestationResponse,
+    expectedChallenge,
+    expectedOrigin: "http://localhost:3000",
+    expectedRPID: "localhost",
+  });
+
+  if (!verification.verified) return res.status(400).json({ message: "Biometric registration failed" });
+
+  const { credentialPublicKey, credentialID, counter } = verification.registrationInfo;
+
+  config.biometricCredentials.push({
+    credentialID: base64url.encode(Buffer.from(credentialID)),
+    publicKey: base64url.encode(Buffer.from(credentialPublicKey)),
+    counter,
+    transports: req.body.transports || [],
+  });
+  config.biometricEnabled = true;
+  config.currentChallenge = null;
+  await config.save();
+
+  res.json({ success: true });
+});
+
+// Biometric Authentication
+router.get("/biometric/generate-authentication-options/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  const config = await SecurityConfig.findOne({ userId });
+  if (!config || !config.biometricCredentials.length) {
+    return res.status(404).json({ message: "No credentials found" });
+  }
+
+  const options = await generateAuthenticationOptions({
+    timeout: 60000,
+    rpID: "localhost",
+    allowCredentials: config.biometricCredentials.map((cred) => ({
+      id: bufferFromBase64url(cred.credentialID),
+      type: "public-key",
+      transports: cred.transports || [],
+    })),
+  });
+
+  config.currentChallenge = options.challenge;
+  await config.save();
+
+  res.json(options);
+});
+
+router.post("/biometric/verify", async (req, res) => {
+  const { userId, authenticationResponse } = req.body;
+  const config = await SecurityConfig.findOne({ userId });
+  if (!config || !config.biometricCredentials.length) {
+    return res.status(404).json({ message: "No biometric credentials found" });
+  }
+
+  const credentialID = authenticationResponse.id;
+  const stored = config.biometricCredentials.find(c => c.credentialID === credentialID);
+  if (!stored) return res.status(400).json({ message: "Credential not registered" });
+
+  const verification = await verifyAuthenticationResponse({
+    response: authenticationResponse,
+    expectedChallenge: config.currentChallenge,
+    expectedOrigin: "http://localhost:3000",
+    expectedRPID: "localhost",
+    authenticator: {
+      credentialID: bufferFromBase64url(stored.credentialID),
+      credentialPublicKey: bufferFromBase64url(stored.publicKey),
+      counter: stored.counter,
+    },
+  });
+
+  if (!verification.verified) return res.status(400).json({ message: "Biometric verification failed" });
+
+  stored.counter = verification.authenticationInfo.newCounter;
+  config.lastVerifiedAt = new Date();
+  config.currentChallenge = null;
+  await config.save();
+
+  res.json({ success: true });
+});
+
 
 export default router;
