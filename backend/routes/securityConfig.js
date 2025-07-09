@@ -340,24 +340,22 @@ router.get("/biometric/generate-registration-options/:userId", async (req, res) 
   const config = await SecurityConfig.findOne({ userId });
   if (!config) return res.status(404).json({ message: "Config not found" });
 
- const options = await generateRegistrationOptions({
-  rpName: "Secure Vault",
-  rpID: "localhost",
-  userID: Buffer.from(userId, "utf-8"),  // FIXED
-  userName: `user-${userId}`,
-  excludeCredentials: config.biometricCredentials.map((cred) => ({
-    id: Uint8Array.from(base64url.toBuffer(cred.credentialID)),
-    type: "public-key",
-  })),
-});
+  const options = await generateRegistrationOptions({
+    rpName: "Secure Vault",
+    rpID: "localhost",
+    userID: Buffer.from(userId, "utf-8"),  // Correct
+    userName: `user-${userId}`,
+    excludeCredentials: config.biometricCredentials.map((cred) => ({
+      id: cred.credentialID, // ✅ FIXED: must be base64url string
+      type: "public-key",
+    })),
+  });
 
-config.currentChallenge = options.challenge;
-await config.save();
+  config.currentChallenge = options.challenge;
+  await config.save();
 
-// FIX: Encode user.id to Base64URL for frontend to decode
-options.user.id = base64url.encode(options.user.id); 
-
-res.json(options);
+  options.user.id = base64url.encode(options.user.id); // Send base64url-encoded id to frontend
+  res.json(options);
 });
 
 router.post("/biometric/verify-registration/:userId", async (req, res) => {
