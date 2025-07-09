@@ -19,9 +19,18 @@ const securityConfigSchema = new mongoose.Schema({
   patternHash: { type: String, default: null },
   patternEnabled: { type: Boolean, default: false },
 
-  // 🧬 Biometric login
+  // 🧜 Biometric login
   biometricHash: { type: String, default: null }, // Used to compare against frontend signature
   biometricEnabled: { type: Boolean, default: false },
+  biometricCredentials: [
+    {
+      credentialID: { type: String, required: true },
+      publicKey: { type: String, required: true },
+      counter: { type: Number, default: 0 },
+      transports: [{ type: String }]
+    }
+  ],
+  currentChallenge: { type: String, default: null },
 
   updatedAt: { type: Date, default: Date.now },
   lastVerifiedAt: { type: Date, default: null },
