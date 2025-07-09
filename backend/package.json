@@ -11,7 +11,8 @@
   "license": "ISC",
   "keywords": [],
   "dependencies": {
-    "@simplewebauthn/server": "^13.1.2",
+    "@simplewebauthn/server": "^10.0.1",
+    "cookie-parser": "^1.4.6",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
