@@ -47,36 +47,39 @@ router.post("/", async (req, res) => {
 });
 
 // Update config
+// Update config
 router.put("/:userId", async (req, res) => {
-  const { userId } = req.body;
+  const { userId } = req.params;
   try {
     const update = {};
 
-    if (req.body.passwordEnabled) {
-      update.passwordEnabled = true;
-      update.pinEnabled = false;
-      update.patternEnabled = false;
+    // Handle each auth method explicitly
+    if ('passwordEnabled' in req.body) {
+      update.passwordEnabled = req.body.passwordEnabled;
       if (req.body.passwordHash) update.passwordHash = req.body.passwordHash;
-    } else if (req.body.pinEnabled) {
-      update.pinEnabled = true;
-      update.passwordEnabled = false;
-      update.patternEnabled = false;
+    }
+
+    if ('pinEnabled' in req.body) {
+      update.pinEnabled = req.body.pinEnabled;
       if (req.body.pinHash) update.pinHash = req.body.pinHash;
-    } else if (req.body.patternEnabled) {
-      update.patternEnabled = true;
-      update.pinEnabled = false;
-      update.passwordEnabled = false;
+    }
+
+    if ('patternEnabled' in req.body) {
+      update.patternEnabled = req.body.patternEnabled;
       if (req.body.patternHash) update.patternHash = req.body.patternHash;
     }
 
-    if (req.body.biometricEnabled === false) {
-      update.biometricCredentials = [];
+    if ('biometricEnabled' in req.body) {
+      update.biometricEnabled = req.body.biometricEnabled;
+      if (!req.body.biometricEnabled) {
+        update.biometricCredentials = [];
+      }
     }
 
     update.updatedAt = new Date();
 
     const config = await SecurityConfig.findOneAndUpdate(
-      { userId: req.params.userId },
+      { userId },
       { $set: update },
       { new: true }
     );
@@ -84,6 +87,7 @@ router.put("/:userId", async (req, res) => {
     if (!config) return res.status(404).json({ message: "Config not found" });
     res.json(config);
   } catch (err) {
+    console.error("Update error:", err);
     res.status(500).json({ message: "Error updating config" });
   }
 });
