@@ -26,14 +26,27 @@ const transporter = nodemailer.createTransport({
 
 // Get user's config
 router.get("/:userId", async (req, res) => {
-    try {
-        const config = await SecurityConfig.findOne({ userId: req.params.userId });
-        if (!config) return res.status(404).json({ message: "Config not found" });
-        res.json(config);
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching config" });
+  try {
+    const config = await SecurityConfig.findOne({ userId: req.params.userId });
+
+    if (!config) {
+      // Instead of 404, respond clearly
+      return res.status(200).json({
+        setupRequired: true,
+        message: "Security config not found. User has not set up anything yet.",
+        config: null,
+      });
     }
+
+    res.json({
+      setupRequired: false,
+      config,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching config" });
+  }
 });
+
 
 // Create default config
 router.post("/", async (req, res) => {
