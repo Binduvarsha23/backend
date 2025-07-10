@@ -343,16 +343,23 @@ router.get("/biometric/generate-registration-options/:userId", async (req, res) 
   const config = await SecurityConfig.findOne({ userId });
   if (!config) return res.status(404).json({ message: "Config not found" });
 
-  const options = await generateRegistrationOptions({
-    rpName: "Secure Vault",
-    rpID: "localhost",
-    userID: Buffer.from(userId, "utf-8"),  // Correct
-    userName: `user-${userId}`,
-    excludeCredentials: config.biometricCredentials.map((cred) => ({
-      id: cred.credentialID, // ✅ FIXED: must be base64url string
-      type: "public-key",
-    })),
-  });
+ const options = await generateRegistrationOptions({
+  rpName: "Secure Vault",
+  rpID: "localhost",
+  userID: Buffer.from(userId, "utf-8"),
+  userName: `user-${userId}`,
+  excludeCredentials: config.biometricCredentials.map((cred) => ({
+    id: cred.credentialID,
+    type: "public-key",
+  })),
+  authenticatorSelection: {
+    authenticatorAttachment: "platform",  // ✅ Use built-in fingerprint/Windows Hello
+    userVerification: "required",         // ✅ Require fingerprint/FaceID
+  },
+  attestationType: "none",                // ✅ No extra metadata required
+  timeout: 60000,
+});
+
 
   config.currentChallenge = options.challenge;
   await config.save();
