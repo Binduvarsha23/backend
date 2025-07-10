@@ -345,7 +345,7 @@ router.get("/biometric/generate-registration-options/:userId", async (req, res) 
 
  const options = await generateRegistrationOptions({
   rpName: "Secure Vault",
-  rpID: "localhost",
+  rpID: "frontend-beryl-five-64.vercel.app",
   userID: Buffer.from(userId, "utf-8"),
   userName: `user-${userId}`,
   excludeCredentials: config.biometricCredentials.map((cred) => ({
@@ -378,8 +378,8 @@ router.post("/biometric/verify-registration/:userId", async (req, res) => {
   const verification = await verifyRegistrationResponse({
     response: req.body.attestationResponse,
     expectedChallenge,
-    expectedOrigin: "http://localhost:3000",
-    expectedRPID: "localhost",
+    expectedOrigin: "https://frontend-beryl-five-64.vercel.app",
+    expectedRPID: "frontend-beryl-five-64.vercel.app",
   });
 
   if (!verification.verified) return res.status(400).json({ message: "Biometric registration failed" });
@@ -416,7 +416,7 @@ router.get("/biometric/generate-authentication-options/:userId", async (req, res
 
 const options = await generateAuthenticationOptions({
   timeout: 60000,
-  rpID: "localhost", // or your actual domain
+  rpID: "frontend-beryl-five-64.vercel.app", // or your actual domain
   allowCredentials,
 });
 
@@ -443,8 +443,8 @@ router.post("/biometric/verify", async (req, res) => {
   const verification = await verifyAuthenticationResponse({
     response: authenticationResponse,
     expectedChallenge: config.currentChallenge,
-    expectedOrigin: "http://localhost:3000",
-    expectedRPID: "localhost",
+    expectedOrigin: "https://frontend-beryl-five-64.vercel.app",
+    expectedRPID: "frontend-beryl-five-64.vercel.app",
     authenticator: {
       credentialID: bufferFromBase64url(stored.credentialID),
       credentialPublicKey: bufferFromBase64url(stored.publicKey),
