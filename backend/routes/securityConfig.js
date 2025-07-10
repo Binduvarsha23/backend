@@ -333,7 +333,7 @@ router.post("/reset-method-with-token", async (req, res) => {
     }
 });const bufferFromBase64url = (val) => {
   if (!val || typeof val !== "string") throw new Error("Invalid base64url value");
-  return Buffer.from(base64url.toBuffer(val));
+  return base64url.toBuffer(val);
 };
 
 
