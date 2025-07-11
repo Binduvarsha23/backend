@@ -2,7 +2,7 @@
 import express from 'express';
 import FamilyMember from '../models/FamilyMember.js';
 
-const router = express = express.Router();
+const router = express.Router();
 
 // GET all family members for a user
 router.get('/', async (req, res) => {
