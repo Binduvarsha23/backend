@@ -7,6 +7,7 @@ const familyMemberSchema = new mongoose.Schema({
   pan: { type: String },
   phone: { type: String },
   nominee: { type: Boolean, default: false },
+   image: { type: String , required: true},
   createdAt: { type: Date, default: Date.now },
 });
 
