@@ -13,7 +13,8 @@ router.post('/upload', async (req, res) => {
   }
 
   try {
-    const newFile = new HealthFile({ userId, blockName, fileName, fileData });
+    // Initialize favorite to false by default for new uploads
+    const newFile = new HealthFile({ userId, blockName, fileName, fileData, favorite: false });
     await newFile.save();
     res.status(201).json({ message: 'File uploaded successfully', file: newFile });
   } catch (err) {
@@ -54,6 +55,24 @@ router.patch('/:id', async (req, res) => {
   } catch (err) {
     console.error('Update error:', err);
     res.status(500).json({ error: 'Server error during update' });
+  }
+});
+
+// PATCH /api/health-records/:id/favorite - Toggle favorite status
+router.patch('/:id/favorite', async (req, res) => {
+  try {
+    const file = await HealthFile.findById(req.params.id);
+    if (!file) {
+      return res.status(404).json({ error: 'Health file not found' });
+    }
+
+    file.favorite = !file.favorite; // Toggle the favorite boolean
+    await file.save();
+
+    res.json({ success: true, favorite: file.favorite });
+  } catch (err) {
+    console.error('❌ Toggle favorite error for health file:', err);
+    res.status(500).json({ error: 'Failed to toggle favorite status for health file' });
   }
 });
 
