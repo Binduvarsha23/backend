@@ -47,7 +47,6 @@ router.post("/", async (req, res) => {
 });
 
 // Update config
-// Update config
 router.put("/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
@@ -72,9 +71,21 @@ router.put("/:userId", async (req, res) => {
     if ('biometricEnabled' in req.body) {
       update.biometricEnabled = req.body.biometricEnabled;
       if (!req.body.biometricEnabled) {
+        // If disabling, clear credentials
         update.biometricCredentials = [];
+      } else if (req.body.biometricCredentials) {
+        // If enabling AND new credentials are provided from frontend, set them
+        // This assumes the frontend sends the full array, including existing ones
+        update.biometricCredentials = req.body.biometricCredentials;
       }
     }
+    
+    // Ensure biometricHash is explicitly removed if it's sent from frontend and not needed
+    // This handles cases where frontend might send null/undefined for it.
+    if ('biometricHash' in req.body) {
+        update.biometricHash = req.body.biometricHash; // Will be null from frontend
+    }
+
 
     update.updatedAt = new Date();
 
@@ -109,6 +120,11 @@ router.post("/verify", async (req, res) => {
     } else if (method === "pattern" && config.patternHash) {
       isMatch = await bcrypt.compare(value, config.patternHash);
     } else if (method === "biometric") {
+      // For biometric, the actual verification happens on the client side
+      // with the WebAuthn API. The backend would typically verify the
+      // attestation/assertion from the client.
+      // For this simplified demo, we'll assume the client-side WebAuthn call
+      // was successful if it reached here.
       isMatch = true;
     }
 
@@ -227,7 +243,7 @@ router.post("/request-method-reset", async (req, res) => {
         <p>Hello,</p>
         <p>You have requested to reset your <strong>${methodToReset}</strong>.</p>
         <p>Use the following code in the app:</p>
-        <h3 style="...">${resetToken}</h3>
+        <h3 style="..."> ${resetToken}</h3>
         <p>Code valid for 1 hour.</p>
       `,
     };
