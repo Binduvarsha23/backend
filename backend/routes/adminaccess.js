@@ -58,3 +58,4 @@ router.delete('/:email', isSuperAdmin, async (req, res) => {
     res.status(500).json({ error: 'Error deleting access' });
   }
 });
+export default router;
