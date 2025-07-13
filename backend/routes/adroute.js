@@ -1,3 +1,4 @@
+// routes/ad.routes.js
 import express from 'express';
 import multer from 'multer';
 import Ad from '../models/ad.js';
@@ -11,21 +12,8 @@ const bufferToBase64 = (buffer, mimetype) => {
   return `data:${mimetype};base64,${buffer.toString('base64')}`;
 };
 
-// 🔓 Admin: Get ALL ads except expired
+// GET visible ads for users (active, not hidden, and not expired)
 router.get('/', async (req, res) => {
-  try {
-    const now = new Date();
-    const ads = await Ad.find({
-      endTime: { $gte: now } // Only exclude expired
-    }).sort({ priority: 1, sequence: 1 });
-    res.json(ads);
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// 🔒 Users: Only show running, visible, active ads
-router.get('/public', async (req, res) => {
   try {
     const now = new Date();
     const ads = await Ad.find({
@@ -33,14 +21,31 @@ router.get('/public', async (req, res) => {
       status: 'active',
       startTime: { $lte: now },
       endTime: { $gte: now }
-    }).sort({ priority: 1, sequence: 1 });
+    })
+      .select('-comment') // hide comment from users
+      .sort({ priority: 1, sequence: 1 });
+
     res.json(ads);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET single ad by ID
+// GET all non-expired ads for admin (includes future, hold, inactive, hidden, etc.)
+router.get('/admin/all', async (req, res) => {
+  try {
+    const now = new Date();
+    const ads = await Ad.find({
+      endTime: { $gte: now } // not expired
+    }).sort({ priority: 1, sequence: 1 });
+
+    res.json(ads); // includes comment
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET single ad
 router.get('/:id', async (req, res) => {
   try {
     const ad = await Ad.findById(req.params.id);
@@ -51,7 +56,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// CREATE new ad with file upload
+// CREATE ad
 router.post('/', upload.single('image'), async (req, res) => {
   try {
     const {
@@ -68,16 +73,17 @@ router.post('/', upload.single('image'), async (req, res) => {
       header,
       summary,
       userOptions,
-      status = 'active'
+      status = 'active',
+      comment // NEW
     } = req.body;
+
+    if (new Date(endTime) <= new Date(startTime)) {
+      return res.status(400).json({ error: 'End time must be after start time' });
+    }
 
     let contentBase64 = null;
     if (req.file) {
       contentBase64 = bufferToBase64(req.file.buffer, req.file.mimetype);
-    }
-
-    if (new Date(endTime) <= new Date(startTime)) {
-      return res.status(400).json({ error: 'End time must be after start time' });
     }
 
     const newAd = new Ad({
@@ -97,6 +103,7 @@ router.post('/', upload.single('image'), async (req, res) => {
       summary,
       userOptions: userOptions ? JSON.parse(userOptions) : [],
       status,
+      comment
     });
 
     const savedAd = await newAd.save();
@@ -106,15 +113,9 @@ router.post('/', upload.single('image'), async (req, res) => {
   }
 });
 
-// UPDATE existing ad
+// UPDATE ad (edit)
 router.put('/:id', async (req, res) => {
   try {
-    const { startTime, endTime } = req.body;
-
-    if (startTime && endTime && new Date(endTime) <= new Date(startTime)) {
-      return res.status(400).json({ error: 'End time must be after start time' });
-    }
-
     const updatedAd = await Ad.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!updatedAd) return res.status(404).json({ error: 'Ad not found' });
     res.json(updatedAd);
@@ -134,7 +135,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// TOGGLE HIDE/UNHIDE ad
+// HIDE / UNHIDE ad
 router.patch('/:id/hide', async (req, res) => {
   try {
     const ad = await Ad.findById(req.params.id);
@@ -147,7 +148,7 @@ router.patch('/:id/hide', async (req, res) => {
   }
 });
 
-// UPDATE ad status: active / hold / inactive
+// UPDATE ad status (active, hold, inactive)
 router.patch('/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
@@ -162,7 +163,7 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
-// CRON: Delete expired ads
+// DELETE expired ads (optional, for cron)
 router.delete('/expired/cleanup', async (req, res) => {
   try {
     const now = new Date();
