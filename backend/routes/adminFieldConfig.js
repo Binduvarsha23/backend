@@ -8,7 +8,7 @@ const router = express.Router();
 // Simple admin check middleware
 const isAdmin = (req, res, next) => {
   const email = req.headers['admin-email'];
-  if (email !== 'binduvarshasunkara@gmail.com') {
+  if (email !== 'socioclubsc@gmail.com') {
     return res.status(403).json({ error: 'Unauthorized: Admins only' });
   }
   next();
