@@ -1,12 +1,12 @@
-// models/ad.js
+// --- Updated: models/ad.js ---
 import mongoose from 'mongoose';
 
 const adSchema = new mongoose.Schema({
   type: { type: String, enum: ['banner', 'popup', 'card', 'story'], required: true },
   dimensions: [{ type: String, enum: ['16:9', '4:5', '1:4'], required: true }],
   contentType: { type: String, enum: ['image', 'video', 'audio'], required: true },
-  contentUrl: { type: String }, // optional
-  contentBase64: { type: String }, // for embedded images
+  contentUrl: { type: String },
+  contentBase64: { type: String },
   startTime: { type: Date, required: true },
   endTime: { type: Date, required: true },
   priority: { type: Number, default: 1 },
@@ -23,7 +23,8 @@ const adSchema = new mongoose.Schema({
     }
   ],
   isHidden: { type: Boolean, default: false },
-  isActive: { type: Boolean, default: true }
+  isActive: { type: Boolean, default: true },
+  status: { type: String, enum: ['active', 'hold', 'inactive'], default: 'active' }
 }, { timestamps: true });
 
 export default mongoose.model('Ad', adSchema);
