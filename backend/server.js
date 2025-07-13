@@ -19,7 +19,7 @@ import searchRoutes from './routes/search.js';
 import healthRecordRoutes from './routes/healthRecords.js';
 import healthBlockRoutes from './routes/healthBlocks.js';
 import securityConfigRoutes from './routes/securityConfig.js';
-import adRoutes from './routes/ad.js';
+import adRoutes from './routes/adroute.js';
 
 dotenv.config();
 const app = express();
