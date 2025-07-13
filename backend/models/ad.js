@@ -1,4 +1,3 @@
-// --- Updated: models/ad.js ---
 import mongoose from 'mongoose';
 
 const adSchema = new mongoose.Schema({
@@ -24,7 +23,8 @@ const adSchema = new mongoose.Schema({
   ],
   isHidden: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
-  status: { type: String, enum: ['active', 'hold', 'inactive'], default: 'active' }
+  status: { type: String, enum: ['active', 'hold', 'inactive'], default: 'active' },
+  comment: { type: String }, // ✅ NEW FIELD (visible only to admin)
 }, { timestamps: true });
 
 export default mongoose.model('Ad', adSchema);
