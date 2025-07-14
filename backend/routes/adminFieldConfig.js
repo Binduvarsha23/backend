@@ -2,20 +2,12 @@ import express from 'express';
 import mongoose from 'mongoose';
 import BlockMetadata from '../models/BlockMetadata.js';
 import FieldConfig from '../models/FieldConfig.js';
+import { checkAccessLevel, requireReadWrite } from '../middleware/adminMiddleware.js';
 
 const router = express.Router();
 
-// Simple admin check middleware
-const isAdmin = (req, res, next) => {
-  const email = req.headers['admin-email'];
-  if (email !== 'binduvarshasunkara@gmail.com') {
-    return res.status(403).json({ error: 'Unauthorized: Admins only' });
-  }
-  next();
-};
-
-// GET all blocks with their field definitions and current config
-router.get('/all-blocks-fields', isAdmin, async (req, res) => {
+// ✅ GET all blocks with their field definitions and current config (view access for all valid roles)
+router.get('/all-blocks-fields', checkAccessLevel, async (req, res) => {
   try {
     const blocks = await BlockMetadata.find();
     const db = mongoose.connection.db;
@@ -51,8 +43,8 @@ router.get('/all-blocks-fields', isAdmin, async (req, res) => {
   }
 });
 
-// POST: Save or update a field config (required/visible/label)
-router.post('/save', isAdmin, async (req, res) => {
+// ✅ POST: Save or update a field config — only for readwrite/superadmin
+router.post('/save', checkAccessLevel, requireReadWrite, async (req, res) => {
   try {
     const { blockId, fieldKey, required, visible, label } = req.body;
 
