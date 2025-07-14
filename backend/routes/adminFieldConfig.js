@@ -2,7 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import BlockMetadata from '../models/BlockMetadata.js';
 import FieldConfig from '../models/FieldConfig.js';
-import { checkAccessLevel, requireReadWrite } from '../middleware/adminMiddleware.js';
+import { checkAccessLevel, requireReadWrite } from './adminaccess.js';
 
 const router = express.Router();
 
