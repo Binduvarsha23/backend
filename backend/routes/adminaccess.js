@@ -1,6 +1,6 @@
 import express from 'express';
 import AdminAccess from '../models/AdminAccess.js';
-import { checkAccessLevel, requireReadWrite, isSuperAdmin } from '../middleware/adminMiddleware.js';
+import { checkAccessLevel, requireReadWrite, isSuperAdmin } from './adminMiddleware.js';
 
 const router = express.Router();
 const SUPER_ADMIN = 'binduvarshasunkara@gmail.com';
