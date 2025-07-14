@@ -1,10 +1,9 @@
-// routes/ad.routes.js
 import express from 'express';
 import multer from 'multer';
 import Ad from '../models/ad.js';
+import { checkAccessLevel, requireReadWrite } from '../middleware/adminMiddleware.js';
 
 const router = express.Router();
-
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
@@ -12,7 +11,7 @@ const bufferToBase64 = (buffer, mimetype) => {
   return `data:${mimetype};base64,${buffer.toString('base64')}`;
 };
 
-// GET visible ads for users (active, not hidden, and not expired)
+// Public: Visible ads for users
 router.get('/', async (req, res) => {
   try {
     const now = new Date();
@@ -22,7 +21,7 @@ router.get('/', async (req, res) => {
       startTime: { $lte: now },
       endTime: { $gte: now }
     })
-      .select('-comment') // hide comment from users
+      .select('-comment')
       .sort({ priority: 1, sequence: 1 });
 
     res.json(ads);
@@ -31,21 +30,18 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET all non-expired ads for admin (includes future, hold, inactive, hidden, etc.)
-router.get('/admin/all', async (req, res) => {
+// Admin View: All future and current ads
+router.get('/admin/all', checkAccessLevel, async (req, res) => {
   try {
     const now = new Date();
-    const ads = await Ad.find({
-      endTime: { $gte: now } // not expired
-    }).sort({ priority: 1, sequence: 1 });
-
-    res.json(ads); // includes comment
+    const ads = await Ad.find({ endTime: { $gte: now } }).sort({ priority: 1, sequence: 1 });
+    res.json(ads);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET single ad
+// Get by ID
 router.get('/:id', async (req, res) => {
   try {
     const ad = await Ad.findById(req.params.id);
@@ -56,25 +52,13 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// CREATE ad
-router.post('/', upload.single('image'), async (req, res) => {
+// Create Ad
+router.post('/', checkAccessLevel, requireReadWrite, upload.single('image'), async (req, res) => {
   try {
     const {
-      type,
-      dimensions,
-      contentType,
-      startTime,
-      endTime,
-      priority,
-      platform,
-      redirectUrl,
-      ctaText,
-      sequence,
-      header,
-      summary,
-      userOptions,
-      status = 'active',
-      comment // NEW
+      type, dimensions, contentType, startTime, endTime, priority,
+      platform, redirectUrl, ctaText, sequence, header, summary,
+      userOptions, status = 'active', comment
     } = req.body;
 
     if (new Date(endTime) <= new Date(startTime)) {
@@ -113,8 +97,8 @@ router.post('/', upload.single('image'), async (req, res) => {
   }
 });
 
-// UPDATE ad (edit)
-router.put('/:id', async (req, res) => {
+// Update Ad
+router.put('/:id', checkAccessLevel, requireReadWrite, async (req, res) => {
   try {
     const updatedAd = await Ad.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!updatedAd) return res.status(404).json({ error: 'Ad not found' });
@@ -124,8 +108,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE ad
-router.delete('/:id', async (req, res) => {
+// Delete Ad
+router.delete('/:id', checkAccessLevel, requireReadWrite, async (req, res) => {
   try {
     const deletedAd = await Ad.findByIdAndDelete(req.params.id);
     if (!deletedAd) return res.status(404).json({ error: 'Ad not found' });
@@ -135,8 +119,8 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// HIDE / UNHIDE ad
-router.patch('/:id/hide', async (req, res) => {
+// Hide/Unhide
+router.patch('/:id/hide', checkAccessLevel, requireReadWrite, async (req, res) => {
   try {
     const ad = await Ad.findById(req.params.id);
     if (!ad) return res.status(404).json({ error: 'Ad not found' });
@@ -148,8 +132,8 @@ router.patch('/:id/hide', async (req, res) => {
   }
 });
 
-// UPDATE ad status (active, hold, inactive)
-router.patch('/:id/status', async (req, res) => {
+// Change Status
+router.patch('/:id/status', checkAccessLevel, requireReadWrite, async (req, res) => {
   try {
     const { status } = req.body;
     if (!['active', 'hold', 'inactive'].includes(status)) {
@@ -163,8 +147,8 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
-// DELETE expired ads (optional, for cron)
-router.delete('/expired/cleanup', async (req, res) => {
+// Cleanup expired ads
+router.delete('/expired/cleanup', checkAccessLevel, requireReadWrite, async (req, res) => {
   try {
     const now = new Date();
     const result = await Ad.deleteMany({ endTime: { $lt: now } });
