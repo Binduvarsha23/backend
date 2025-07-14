@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import Ad from '../models/ad.js';
-import { checkAccessLevel, requireReadWrite } from '../middleware/adminMiddleware.js';
+import { checkAccessLevel, requireReadWrite } from './adminaccess.js';
 
 const router = express.Router();
 const storage = multer.memoryStorage();
