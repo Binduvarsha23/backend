@@ -21,6 +21,7 @@ import healthBlockRoutes from './routes/healthBlocks.js';
 import securityConfigRoutes from './routes/securityConfig.js';
 import adRoutes from './routes/adroute.js';
 import adminaccess from './routes/adminaccess.js';
+import fixedPasswordBlockRoutes from './routes/fixedPasswordBlocks.js';
 
 dotenv.config();
 const app = express();
@@ -65,6 +66,8 @@ app.use('/api/health-blocks', healthBlockRoutes);
 app.use('/api/security-config', securityConfigRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/admin-access', adminaccess);
+app.use('/api/fixed-password-blocks', fixedPasswordBlockRoutes);
+
 
 // Default fallback route (optional)
 app.use((req, res) => {
