@@ -23,7 +23,7 @@ import adRoutes from './routes/adroute.js';
 import adminaccess from './routes/adminaccess.js';
 import fixedPasswordBlockRoutes from './routes/fixedPasswordBlocks.js';
 import passwordFieldRoutes from './routes/passwordFields.js';
-const healthFixedBlocks = require('./routes/healthFixedBlocks');
+import healthFixedBlocks from './routes/healthFixedBlocks';
 
 dotenv.config();
 const app = express();
