@@ -11,53 +11,66 @@ router.get('/', async (req, res) => {
 
   try {
     const blocks = await PasswordCategory.find({ userId });
-    res.json(blocks);
+    res.json(blocks); // blocks include summary, blockName, createdAt
   } catch (err) {
-    console.error(err);
+    console.error('❌ Failed to fetch password categories:', err);
     res.status(500).json({ error: 'Failed to fetch custom blocks' });
   }
 });
 
-// POST add new custom block
+// POST add new custom block with optional summary
 router.post('/', async (req, res) => {
-  const { userId, blockName } = req.body;
-  if (!userId || !blockName) return res.status(400).json({ error: 'Missing fields' });
+  const { userId, blockName, summary } = req.body;
+
+  if (!userId || !blockName) {
+    return res.status(400).json({ error: 'Missing required fields: userId and blockName' });
+  }
 
   try {
     const exists = await PasswordCategory.findOne({ userId, blockName });
-    if (exists) return res.status(409).json({ error: 'Block already exists' });
+    if (exists) {
+      return res.status(409).json({ error: 'Block already exists' });
+    }
 
-    const newBlock = new PasswordCategory({ userId, blockName });
+    const newBlock = new PasswordCategory({
+      userId,
+      blockName: blockName.trim(),
+      summary: summary?.trim() || ''
+    });
+
     await newBlock.save();
     res.status(201).json(newBlock);
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error saving custom password block:', err);
     res.status(500).json({ error: 'Error saving block' });
   }
 });
 
 // DELETE block and all related saved passwords
-// DELETE with query: /api/password-categories?userId=...&blockName=...
+// Expects: /api/password-categories?userId=...&blockName=...
 router.delete('/', async (req, res) => {
   const { userId, blockName } = req.query;
+
   if (!userId || !blockName) {
     return res.status(400).json({ error: 'Missing userId or blockName' });
   }
 
   try {
-    // 1. Delete the custom block
+    // 1. Delete the category
     const deleted = await PasswordCategory.findOneAndDelete({ userId, blockName });
-    if (!deleted) return res.status(404).json({ error: 'Block not found' });
+    if (!deleted) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
 
-    // 2. Delete all password entries related to that block
+    // 2. Delete related passwords
     const deletedPasswords = await savedForm.deleteMany({ userId, blockName });
 
     res.json({
-      message: 'Block and related passwords deleted',
-      deletedPasswords: deletedPasswords.deletedCount
+      message: `Category "${blockName}" and associated passwords deleted.`,
+      deletedCount: deletedPasswords.deletedCount
     });
   } catch (err) {
-    console.error(err);
+    console.error('❌ Failed to delete category:', err);
     res.status(500).json({ error: 'Delete error' });
   }
 });
