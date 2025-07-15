@@ -22,6 +22,8 @@ import securityConfigRoutes from './routes/securityConfig.js';
 import adRoutes from './routes/adroute.js';
 import adminaccess from './routes/adminaccess.js';
 import fixedPasswordBlockRoutes from './routes/fixedPasswordBlocks.js';
+import passwordFieldRoutes from './routes/passwordFields.js';
+
 
 dotenv.config();
 const app = express();
@@ -67,7 +69,7 @@ app.use('/api/security-config', securityConfigRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/admin-access', adminaccess);
 app.use('/api/fixed-password-blocks', fixedPasswordBlockRoutes);
-
+app.use('/api/password-fields', passwordFieldRoutes);
 
 // Default fallback route (optional)
 app.use((req, res) => {
