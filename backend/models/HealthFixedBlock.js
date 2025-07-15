@@ -1,7 +1,8 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const HealthFixedBlockSchema = new mongoose.Schema({
   blockName: { type: String, required: true, unique: true }
 });
 
-module.exports = mongoose.model('healthblocknames', HealthFixedBlockSchema);
+const HealthFixedBlock = mongoose.model('healthblocknames', HealthFixedBlockSchema);
+export default HealthFixedBlock;
